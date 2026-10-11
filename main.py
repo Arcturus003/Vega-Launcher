@@ -1,6 +1,6 @@
 __app_name__ = "Vega Launcher"
 __author__ = "Arcturus"
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __copyright__ = "© 2026 Arcturus. All rights reserved."
 
 import sys
@@ -1006,6 +1006,7 @@ class VegaLauncher(QMainWindow):
             
         self.setWindowTitle(f"Vega Launcher — by {__author__}")
         self.resize(1440, 810)
+        self.center_on_screen()
         if getattr(sys, 'frozen', False):
             self.base_dir = os.path.dirname(sys.executable)
         else:
@@ -1044,6 +1045,20 @@ class VegaLauncher(QMainWindow):
         self.load_config()
         
         self.init_ui()
+
+    def center_on_screen(self):
+        screen = QApplication.primaryScreen()
+        if screen:
+            avail = screen.availableGeometry()
+            # Ekrana sigacak sekilde akilli boyutlandir (headless testlerde 1440x810 boyutunu koru)
+            if avail.width() > 1000 and avail.height() > 600:
+                target_w = min(1440, max(1024, int(avail.width() * 0.92)))
+                target_h = min(810, max(600, int(avail.height() * 0.92)))
+                self.resize(target_w, target_h)
+            
+            geo = self.frameGeometry()
+            geo.moveCenter(avail.center())
+            self.move(geo.topLeft())
 
     def ensure_directories(self):
         os.makedirs(self.profiles_dir, exist_ok=True)
@@ -2298,6 +2313,7 @@ if __name__ == "__main__":
         
     window = VegaLauncher()
     window.show()
+    window.center_on_screen()
 
     # GitHub Releases uzerinden guncelleme kontrolu (arka planda, hata olursa sessiz)
     # Gelistirme ortaminda (python main.py) varsayilan olarak kapali; test icin VEGA_UPDATE_DEV=1
