@@ -227,12 +227,25 @@ class DownloadModpackThread(QThread):
                     mc_version = deps.get("minecraft", "1.20.1")
                     forge_version = deps.get("forge")
                     fabric_version = deps.get("fabric-loader")
+                    quilt_version = deps.get("quilt-loader")
+                    neoforge_version = deps.get("neoforge")
                     
                     if fabric_version:
                         self.progress_update.emit(f"Fabric {fabric_version} kuruluyor...")
                         self.progress_val.emit(0, 0)
                         minecraft_launcher_lib.fabric.install_fabric(mc_version, mc_dir)
                         new_version_id = f"fabric-loader-{fabric_version}-{mc_version}"
+                    elif quilt_version:
+                        self.progress_update.emit(f"Quilt {quilt_version} kuruluyor...")
+                        self.progress_val.emit(0, 0)
+                        try:
+                            minecraft_launcher_lib.quilt.install_quilt(mc_version, mc_dir)
+                        except: pass
+                        new_version_id = f"quilt-loader-{quilt_version}-{mc_version}"
+                    elif neoforge_version:
+                        self.progress_update.emit(f"NeoForge {neoforge_version} algılandı...")
+                        self.progress_val.emit(0, 0)
+                        new_version_id = f"neoforge-{neoforge_version}-{mc_version}"
                     elif forge_version:
                         self.progress_update.emit(f"Forge {forge_version} kuruluyor...")
                         self.progress_val.emit(0, 0)
@@ -1833,6 +1846,9 @@ class VegaLauncher(QMainWindow):
                         self.profiles[profile_id]["project_id"] = proj_id
                     if ver_id:
                         self.profiles[profile_id]["version_id"] = ver_id
+                    det_loader = self.get_active_profile_loader(self.profiles[profile_id])
+                    if det_loader:
+                        self.profiles[profile_id]["loader"] = det_loader
                     
                     if hasattr(self, 'available_updates') and profile_id in self.available_updates:
                         del self.available_updates[profile_id]
@@ -1852,6 +1868,9 @@ class VegaLauncher(QMainWindow):
                         self.profiles[profile_id]["project_id"] = proj_id
                         self.profiles[profile_id]["version_id"] = ver_id
                         self.profiles[profile_id]["source"] = "modrinth"
+                    det_loader = self.get_active_profile_loader(self.profiles[profile_id])
+                    if det_loader:
+                        self.profiles[profile_id]["loader"] = det_loader
 
                 self.save_config()
                 self.refresh_profile_list()
@@ -1870,6 +1889,23 @@ class VegaLauncher(QMainWindow):
         pdata = self.profiles.get(profile_id)
         if not pdata: return
         
+        loader = self.get_active_profile_loader(pdata)
+        ver_str = str(pdata.get("version") or "")
+        match = re.search(r'(?<![\d\.])(1\.(?:[7-9]|\d{2})(?:\.\d+)?)(?![\d\.])', ver_str)
+        base_version = match.group(1) if match else None
+
+        # Güvenlik doğrulaması: Hedef dosyanın profil motoruyla (Fabric vb.) uyumlu olduğunu kesinleştir
+        verified_file = ModrinthAPI.get_latest_version_file(project_id, game_version=base_version, loader=loader)
+        if not verified_file and loader:
+            verified_file = ModrinthAPI.get_latest_version_file(project_id, loader=loader)
+
+        if verified_file:
+            new_version_id = verified_file.get("version_id") or new_version_id
+            new_url = verified_file.get("url") or new_url
+        elif loader:
+            QMessageBox.warning(self, "Güncelleme Uyarısı", f"Bu modpaketin {loader.capitalize()} motoru için uyumlu bir güncellemesi bulunamadı.")
+            return
+
         reply = QMessageBox.question(self, 'Güncelleme', "Modpaketi güncellenecek. Eski mods ve config klasörleri silinecek. Onaylıyor musunuz?", QMessageBox.Yes | QMessageBox.No)
         if reply != QMessageBox.Yes:
             return

@@ -111,7 +111,47 @@ class ModrinthAPI:
             print(f"İndirme Hatası: {e}")
             return False
 
+import os
+import re
 from PySide6.QtCore import QThread, Signal
+
+def detect_profile_loader(pdata):
+    if not pdata or not isinstance(pdata, dict):
+        return None
+    loader_val = pdata.get("loader")
+    if loader_val:
+        return str(loader_val).lower()
+    ver = str(pdata.get("version") or "").lower()
+    for known in ["neoforge", "fabric", "quilt", "forge"]:
+        if known in ver:
+            return known
+    prof_path = pdata.get("path") or ""
+    if prof_path and os.path.isdir(prof_path):
+        mods_dir = os.path.join(prof_path, "mods")
+        if os.path.isdir(mods_dir):
+            try:
+                files = [f.lower() for f in os.listdir(mods_dir) if f.endswith(".jar")]
+                neo_cnt = sum(1 for f in files if "neoforge" in f)
+                fab_cnt = sum(1 for f in files if "fabric" in f)
+                quilt_cnt = sum(1 for f in files if "quilt" in f)
+                forge_cnt = sum(1 for f in files if "forge" in f and "neoforge" not in f)
+                counts = {"neoforge": neo_cnt, "fabric": fab_cnt, "quilt": quilt_cnt, "forge": forge_cnt}
+                top_loader = max(counts, key=counts.get)
+                if counts[top_loader] > 0:
+                    return top_loader
+            except Exception:
+                pass
+    return None
+
+def detect_profile_game_version(pdata):
+    if not pdata or not isinstance(pdata, dict):
+        return None
+    ver = str(pdata.get("game_version") or "")
+    if ver:
+        return ver
+    ver_str = str(pdata.get("version") or "")
+    match = re.search(r'(?<![\d\.])(1\.(?:[7-9]|\d{2})(?:\.\d+)?)(?![\d\.])', ver_str)
+    return match.group(1) if match else None
 
 class UpdateCheckerThread(QThread):
     # profile_id, new_version_id, new_file_url
@@ -134,7 +174,25 @@ class UpdateCheckerThread(QThread):
                 current_version_id = pdata.get("version_id")
                 
                 if project_id and current_version_id:
-                    latest_file = ModrinthAPI.get_latest_version_file(project_id)
+                    loader = detect_profile_loader(pdata)
+                    game_version = detect_profile_game_version(pdata)
+                    
+                    latest_file = None
+                    if loader and game_version:
+                        latest_file = ModrinthAPI.get_latest_version_file(
+                            project_id, game_version=game_version, loader=loader
+                        )
+                    elif loader:
+                        latest_file = ModrinthAPI.get_latest_version_file(
+                            project_id, loader=loader
+                        )
+                    elif game_version:
+                        latest_file = ModrinthAPI.get_latest_version_file(
+                            project_id, game_version=game_version
+                        )
+                    else:
+                        latest_file = ModrinthAPI.get_latest_version_file(project_id)
+
                     if not self._is_running:
                         break
                     if latest_file:

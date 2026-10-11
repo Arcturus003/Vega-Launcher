@@ -1,8 +1,8 @@
 {
-    "main.py": "0b89099b9c17e3f2550ee6e50ad3cfaab83c1d4edaca62ab3f6e2ad4252e60c9",
+    "main.py": "5ff7645fea3917cdf328ba18af35eca7f0395eaa9758df69f25960c8f02fb69f",
     "server_widget.py": "de2d2f7e50da5ea0d89e3ef6cf3fc6adc24bf7f63c883eaa8c16d4b95f2b5d2e",
     "card_widget.py": "3d34f258336f21737a57d4f405d4f9060225629e2ad690abbbf490b1a338f10c",
-    "mod_manager.py": "87aac38399043d78f5c77584ba637155d10def54b9418616d7759572fc354da8",
+    "mod_manager.py": "1a056254a4b7e58cf6b5f1c4682f149cf2a9cfd4e0accb9aae169a4e0101c953",
     "engine_installer.py": "f677f04480d522f2e41c706673570459986446707f9ccb67d4a8a148fdc91e90",
     "playtime_tracker.py": "390afc69e8bae6a35d22938c3524c406a276c9e83d64379f71c98b49cbeb1a2c",
     "vanilla_thread.py": "52dc467e80d6932bde3271a981df521f68fbd8a2569b488d554a5a7e355c3722",
