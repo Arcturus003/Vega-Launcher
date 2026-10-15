@@ -1,0 +1,11 @@
+# Enforce LF line endings for text files to preserve SHA-256 integrity check hashes
+* text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.zip binary
+*.jar binary
+*.exe binary

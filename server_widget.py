@@ -53,7 +53,8 @@ CLIENT_MODS_BLACKLIST = (
 )
 
 def get_base_dir():
-    data_dir = os.path.join(os.environ.get("APPDATA"), ".vega_launcher")
+    appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
+    data_dir = os.path.join(appdata, ".vega_launcher")
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
 
@@ -102,10 +103,11 @@ class BackupThread(QThread):
     stage_update = Signal(str)
     progress_update = Signal(int)
     
-    def __init__(self, server_dir, delete_local=False):
+    def __init__(self, server_dir, delete_local=False, server_thread=None):
         super().__init__()
         self.server_dir = server_dir
         self.delete_local = delete_local
+        self.server_thread = server_thread
         
     def run(self):
         try:
@@ -115,65 +117,98 @@ class BackupThread(QThread):
             server_name = os.path.basename(os.path.normpath(self.server_dir))
             zip_path = os.path.join(backups_dir, f"{server_name}_{timestamp}.zip")
             
-            # --- Aşama 1: Dosyaları say ---
-            self.stage_update.emit("Dosyalar taranıyor...")
-            self.progress_update.emit(0)
-            
-            files_to_zip = []
-            for item in os.listdir(self.server_dir):
-                item_path = os.path.join(self.server_dir, item)
-                if os.path.isdir(item_path):
-                    if item.startswith("world") or item in ["plugins", "mods", "config"]:
-                        for root, dirs, files in os.walk(item_path):
-                            for file in files:
-                                file_path = os.path.join(root, file)
-                                arcname = os.path.relpath(file_path, self.server_dir)
-                                files_to_zip.append((file_path, arcname))
-                else:
-                    if item.endswith(".json") or item.endswith(".properties"):
-                        files_to_zip.append((item_path, item))
-            
-            total_files = len(files_to_zip)
-            
-            # --- Aşama 2: ZIP oluştur ---
-            self.stage_update.emit(f"ZIP oluşturuluyor... (0/{total_files})")
-            
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for i, (file_path, arcname) in enumerate(files_to_zip):
-                    zipf.write(file_path, arcname)
-                    if total_files > 0:
-                        pct = int((i + 1) / total_files * 50)  # ZIP = 0-50%
-                        self.progress_update.emit(pct)
-                    if (i + 1) % 50 == 0 or i + 1 == total_files:
-                        self.stage_update.emit(f"ZIP oluşturuluyor... ({i + 1}/{total_files})")
+            # --- Aşama 1 & 2: Sunucu dünyasını güvene al ve ZIP oluştur ---
+            server_was_running = False
+            if self.server_thread and (self.server_thread.isRunning() or getattr(self.server_thread, 'is_running', False)):
+                server_was_running = True
+                self.stage_update.emit("Sunucu dünyası kaydediliyor (save-off / save-all)...")
+                self.server_thread.send_command("save-off")
+                self.server_thread.send_command("save-all flush")
+                import time
+                time.sleep(1)
+
+            try:
+                self.stage_update.emit("Dosyalar taranıyor...")
+                self.progress_update.emit(0)
+                
+                files_to_zip = []
+                for item in os.listdir(self.server_dir):
+                    item_path = os.path.join(self.server_dir, item)
+                    if os.path.isdir(item_path):
+                        if item.startswith("world") or item in ["plugins", "mods", "config"]:
+                            for root, dirs, files in os.walk(item_path):
+                                for file in files:
+                                    file_path = os.path.join(root, file)
+                                    arcname = os.path.relpath(file_path, self.server_dir)
+                                    files_to_zip.append((file_path, arcname))
+                    else:
+                        if item.endswith(".json") or item.endswith(".properties"):
+                            files_to_zip.append((item_path, item))
+                
+                total_files = len(files_to_zip)
+                self.stage_update.emit(f"ZIP oluşturuluyor... (0/{total_files})")
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for i, (file_path, arcname) in enumerate(files_to_zip):
+                        zipf.write(file_path, arcname)
+                        if total_files > 0:
+                            pct = int((i + 1) / total_files * 50)  # ZIP = 0-50%
+                            self.progress_update.emit(pct)
+                        if (i + 1) % 50 == 0 or i + 1 == total_files:
+                            self.stage_update.emit(f"ZIP oluşturuluyor... ({i + 1}/{total_files})")
+            finally:
+                if server_was_running and self.server_thread and (self.server_thread.isRunning() or getattr(self.server_thread, 'is_running', False)):
+                    self.server_thread.send_command("save-on")
                             
             # --- Aşama 3: Drive'a yükle ---
             base_dir = get_base_dir()
-            creds_path = os.path.join(base_dir, 'credentials.json')
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            candidate_paths = [
+                os.path.join(base_dir, 'credentials.json'),
+                os.path.join(app_dir, 'credentials.json')
+            ]
+            if getattr(sys, 'frozen', False):
+                candidate_paths.append(os.path.join(os.path.dirname(os.path.abspath(sys.executable)), 'credentials.json'))
+
+            # Deduplicate paths while preserving order
+            unique_candidates = []
+            for cp in candidate_paths:
+                norm_cp = os.path.normpath(cp)
+                if norm_cp not in unique_candidates:
+                    unique_candidates.append(norm_cp)
+
+            creds_path = None
+            invalid_creds_found = False
+            for cand in unique_candidates:
+                if os.path.exists(cand):
+                    try:
+                        import json as _json
+                        with open(cand, 'r', encoding='utf-8') as _cf:
+                            creds_data = _json.load(_cf)
+                        if isinstance(creds_data, dict) and ('installed' in creds_data or 'web' in creds_data):
+                            creds_path = cand
+                            break
+                        else:
+                            invalid_creds_found = True
+                    except Exception:
+                        invalid_creds_found = True
+
             token_path = os.path.join(base_dir, 'token.json')
-            
             drive_success = False
             drive_msg = ""
             
-            if os.path.exists(creds_path):
+            if creds_path:
                 try:
-                    import json as _json
-                    with open(creds_path, 'r') as _cf:
-                        creds_data = _json.load(_cf)
-                    if not creds_data or ('installed' not in creds_data and 'web' not in creds_data):
-                        self.stage_update.emit("credentials.json geçersiz — Drive atlanıyor")
-                        self.progress_update.emit(100)
-                        drive_msg = " (credentials.json boş veya geçersiz — Google Cloud Console'dan OAuth Client ID alın)"
-                        self.backup_finished.emit(True, f"Yedek başarıyla alındı!{drive_msg}")
-                        return
-                    
                     self.stage_update.emit("Google Drive'a bağlanılıyor...")
                     self.progress_update.emit(55)
                     
                     SCOPES = ['https://www.googleapis.com/auth/drive.file']
                     creds = None
                     if os.path.exists(token_path):
-                        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+                        try:
+                            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+                        except Exception:
+                            creds = None
+
                     if not creds or not creds.valid:
                         if creds and creds.expired and creds.refresh_token:
                             try:
@@ -181,12 +216,12 @@ class BackupThread(QThread):
                             except Exception:
                                 self.stage_update.emit("Google hesabınızla giriş yapın (tarayıcı açılıyor)...")
                                 flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
-                                creds = flow.run_local_server(port=0, open_browser=True)
+                                creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=60)
                         else:
                             self.stage_update.emit("Google hesabınızla giriş yapın (tarayıcı açılıyor)...")
                             flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
-                            creds = flow.run_local_server(port=0, open_browser=True)
-                        with open(token_path, 'w') as token:
+                            creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=60)
+                        with open(token_path, 'w', encoding='utf-8') as token:
                             token.write(creds.to_json())
                             
                     service = build('drive', 'v3', credentials=creds)
@@ -228,9 +263,15 @@ class BackupThread(QThread):
                     self.progress_update.emit(100)
                     drive_success = True
                 except Exception as e:
-                    drive_msg = " (Drive'a yüklenemedi)"
-            else:
+                    drive_msg = f" (Drive yüklemesi başarısız: {str(e)})"
+            elif invalid_creds_found:
+                self.stage_update.emit("credentials.json geçersiz — Drive atlanıyor")
                 self.progress_update.emit(100)
+                drive_msg = " (Drive yüklemesi atlandı: credentials.json geçersiz)"
+            else:
+                self.stage_update.emit("credentials.json bulunamadı — Drive atlanıyor")
+                self.progress_update.emit(100)
+                drive_msg = " (Drive yüklemesi atlandı: credentials.json bulunamadı)"
             
             if 'media' in locals() and hasattr(media, '_fd') and media._fd:
                 try:
@@ -248,7 +289,7 @@ class BackupThread(QThread):
                 else:
                     self.backup_finished.emit(True, "Yedek alındı ve Google Drive'a yüklendi!")
             else:
-                self.backup_finished.emit(True, f"Yedek başarıyla alındı!{drive_msg}")
+                self.backup_finished.emit(True, f"Yedek alındı{drive_msg}")
         except Exception as e:
             if 'media' in locals() and hasattr(media, '_fd') and media._fd:
                 try:
@@ -280,32 +321,107 @@ class RestoreThread(QThread):
         except Exception as e:
             self.restore_finished.emit(False, f"Geri yükleme hatası: {str(e)}")
 
+def detect_server_loader_and_version(server_dir):
+    """Detect Minecraft server version and loader from server directory."""
+    if not server_dir or not os.path.exists(server_dir):
+        return None, None
+    
+    loader = None
+    version = None
+    
+    # 1. Check libraries directory for loader
+    lib_dir = os.path.join(server_dir, "libraries")
+    if os.path.exists(lib_dir):
+        if os.path.exists(os.path.join(lib_dir, "net", "neoforged")):
+            loader = "neoforge"
+        elif os.path.exists(os.path.join(lib_dir, "net", "minecraftforge")):
+            loader = "forge"
+        elif os.path.exists(os.path.join(lib_dir, "net", "fabricmc")):
+            loader = "fabric"
+
+    # 2. Check mods directory
+    mods_dir = os.path.join(server_dir, "mods")
+    if os.path.exists(mods_dir):
+        try:
+            mod_files = [f.lower() for f in os.listdir(mods_dir) if f.endswith(".jar")]
+            if not loader:
+                if any("neoforge" in f for f in mod_files):
+                    loader = "neoforge"
+                elif any("forge" in f for f in mod_files):
+                    loader = "forge"
+                elif any("fabric" in f or "quilt" in f for f in mod_files):
+                    loader = "fabric"
+            
+            # Check versions in mod filenames
+            versions_to_check = ["1.21.4", "1.21.3", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.2", "1.20.1", "1.19.4", "1.19.2", "1.18.2", "1.16.5"]
+            counts = {v: 0 for v in versions_to_check}
+            for f in mod_files:
+                for v in versions_to_check:
+                    if v in f:
+                        counts[v] += 1
+            best = max(counts, key=counts.get)
+            if counts[best] > 0:
+                version = best
+        except Exception:
+            pass
+
+    # 3. Check jar filenames in server_dir
+    if not version:
+        try:
+            for fname in os.listdir(server_dir):
+                match = re.search(r'\b(1\.\d+(?:\.\d+)?)\b', fname)
+                if match:
+                    version = match.group(1)
+                    break
+        except Exception:
+            pass
+
+    return loader, version
+
 class ModrinthSearchThread(QThread):
     search_finished = Signal(object)
     
-    def __init__(self, query, project_type):
+    def __init__(self, query, project_type, game_version=None, loader=None):
         super().__init__()
         self.query = query
         self.project_type = project_type
+        self.game_version = game_version
+        self.loader = loader
         
     def run(self):
-        results = ModrinthAPI.search_projects(self.query, project_type=self.project_type, limit=20)
+        results = ModrinthAPI.search_projects(
+            self.query, 
+            project_type=self.project_type, 
+            version=self.game_version if self.project_type == "mod" else None,
+            loader=self.loader if self.project_type == "mod" else None,
+            limit=20
+        )
         self.search_finished.emit(results)
 
 class ModrinthDownloadThread(QThread):
     download_finished = Signal(bool, str)
     
-    def __init__(self, project_id, server_dir, project_type):
+    def __init__(self, project_id, server_dir, project_type, game_version=None, loader=None):
         super().__init__()
         self.project_id = project_id
         self.server_dir = server_dir
         self.project_type = project_type
+        self.game_version = game_version
+        self.loader = loader
         
     def run(self):
         try:
-            latest_file = ModrinthAPI.get_latest_version_file(self.project_id)
+            latest_file = ModrinthAPI.get_latest_version_file(
+                self.project_id,
+                game_version=self.game_version if self.project_type == "mod" else None,
+                loader=self.loader if self.project_type == "mod" else None
+            )
+            if not latest_file and (self.game_version or self.loader):
+                # Fallback to general latest if strictly filtered not found
+                latest_file = ModrinthAPI.get_latest_version_file(self.project_id)
+
             if not latest_file:
-                self.download_finished.emit(False, "Dosya bulunamadı!")
+                self.download_finished.emit(False, "Bu sunucu için uyumlu dosya bulunamadı!")
                 return
                 
             url = latest_file.get("url")
@@ -1195,9 +1311,9 @@ class ServerWidget(QWidget):
             sender = sender_input.text().strip() or "Sistem"
             msg = msg_input.text().strip()
             if msg:
-                # Escape quotes for JSON
-                safe_sender = sender.replace('"', '\\"')
-                safe_msg = msg.replace('"', '\\"')
+                # Strip newlines and escape quotes to prevent console command injection
+                safe_sender = sender.replace('\r', '').replace('\n', '').replace('"', '\\"')
+                safe_msg = msg.replace('\r', '').replace('\n', '').replace('"', '\\"')
                 
                 # tellraw command for colored and formatted chat message
                 cmd = f'tellraw {player_name} ["", {{"text":"[{safe_sender}] ","color":"aqua","bold":true}}, {{"text":"{safe_msg}","color":"yellow","bold":false}}]'
@@ -1637,12 +1753,8 @@ class ServerWidget(QWidget):
                 if file.endswith(".zip"):
                     self.backup_list.addItem(file)
 
-    def take_backup(self):
+    def take_backup(self, checked=False):
         if not self.server_dir: return
-        if self.server_thread and self.server_thread.is_running:
-            QMessageBox.warning(self, "Uyarı", "Sunucu çalışırken yedek alınamaz. Lütfen önce sunucuyu durdurun.")
-            return
-            
         self.btn_take_backup.setEnabled(False)
         self.log("[BİLGİ] Yedekleme başlatılıyor...")
         
@@ -1659,10 +1771,10 @@ class ServerWidget(QWidget):
         self._backup_progress.setMinimumDuration(0)
         self._backup_progress.show()
         
-        thread = BackupThread(self.server_dir, delete_local=self.chk_delete_local.isChecked())
+        thread = BackupThread(self.server_dir, delete_local=self.chk_delete_local.isChecked(), server_thread=self.server_thread)
         self._api_threads.append(thread)
-        thread.stage_update.connect(lambda text: self._backup_progress.setLabelText(text))
-        thread.progress_update.connect(lambda val: self._backup_progress.setValue(val))
+        thread.stage_update.connect(lambda text: self._backup_progress.setLabelText(text) if getattr(self, '_backup_progress', None) else None)
+        thread.progress_update.connect(lambda val: self._backup_progress.setValue(val) if getattr(self, '_backup_progress', None) else None)
         thread.backup_finished.connect(self.on_backup_finished)
         thread.start()
 
@@ -1723,7 +1835,8 @@ class ServerWidget(QWidget):
         if not hasattr(self, '_api_threads'): self._api_threads = []
         self._api_threads = [t for t in self._api_threads if t.isRunning()]
         
-        thread = ModrinthSearchThread(query, project_type)
+        loader, version = detect_server_loader_and_version(self.server_dir)
+        thread = ModrinthSearchThread(query, project_type, game_version=version, loader=loader)
         self._api_threads.append(thread)
         thread.search_finished.connect(self.on_search_finished)
         thread.start()
@@ -1762,7 +1875,8 @@ class ServerWidget(QWidget):
         if not hasattr(self, '_api_threads'): self._api_threads = []
         self._api_threads = [t for t in self._api_threads if t.isRunning()]
         
-        thread = ModrinthDownloadThread(project_id, self.server_dir, project_type)
+        loader, version = detect_server_loader_and_version(self.server_dir)
+        thread = ModrinthDownloadThread(project_id, self.server_dir, project_type, game_version=version, loader=loader)
         self._api_threads.append(thread)
         thread.download_finished.connect(self.on_download_finished)
         thread.start()

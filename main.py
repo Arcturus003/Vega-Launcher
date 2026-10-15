@@ -1,6 +1,6 @@
 __app_name__ = "Vega Launcher"
 __author__ = "Arcturus"
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __copyright__ = "© 2026 Arcturus. All rights reserved."
 
 import sys
@@ -243,9 +243,18 @@ class DownloadModpackThread(QThread):
                         except: pass
                         new_version_id = f"quilt-loader-{quilt_version}-{mc_version}"
                     elif neoforge_version:
-                        self.progress_update.emit(f"NeoForge {neoforge_version} algılandı...")
+                        self.progress_update.emit(f"NeoForge {neoforge_version} kuruluyor...")
                         self.progress_val.emit(0, 0)
-                        new_version_id = f"neoforge-{neoforge_version}-{mc_version}"
+                        try:
+                            import minecraft_launcher_lib.mod_loader
+                            neo = minecraft_launcher_lib.mod_loader.get_mod_loader('neoforge')
+                            installed_ver = neo.install(mc_version, neoforge_version, mc_dir)
+                            if not installed_ver:
+                                installed_ver = neo.get_installed_version(mc_version, neoforge_version)
+                            new_version_id = installed_ver if installed_ver else f"neoforge-{neoforge_version}-{mc_version}"
+                        except Exception as e:
+                            print(f"NeoForge kurulum hatası: {e}")
+                            new_version_id = f"neoforge-{neoforge_version}-{mc_version}"
                     elif forge_version:
                         self.progress_update.emit(f"Forge {forge_version} kuruluyor...")
                         self.progress_val.emit(0, 0)
@@ -370,8 +379,8 @@ class DownloadModpackThread(QThread):
 
                 self.progress_update.emit("Ayarlar, Haritalar ve Config dosyaları kopyalanıyor...")
                 self.progress_val.emit(0, 0)
-                for override_folder in ["overrides", "client-overrides", "overrides/saves", "overrides/config"]:
-                    overrides_dir = os.path.join(tmpdirname, override_folder.split("/")[0])
+                for override_folder in ["overrides", "client-overrides"]:
+                    overrides_dir = os.path.join(tmpdirname, override_folder)
                     if not os.path.exists(overrides_dir): continue
                     
                     for root, dirs, files_in_dir in os.walk(overrides_dir):
@@ -1109,8 +1118,10 @@ class VegaLauncher(QMainWindow):
             "profiles": getattr(self, "profiles", {}),
             "ms_login": getattr(self, "ms_login", {})
         }
-        with open(self.config_file, "w", encoding="utf-8") as f:
+        tmp_file = f"{self.config_file}.tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=4)
+        os.replace(tmp_file, self.config_file)
         self.sync_with_standard_launchers()
 
     def sync_with_standard_launchers(self):
@@ -1651,7 +1662,7 @@ class VegaLauncher(QMainWindow):
                 # 2. Deneme: Hâlâ duruyorsa Windows komutuyla zorla sil
                 if os.path.exists(profile_path):
                     try:
-                        os.system(f'rd /s /q "{profile_path}"')
+                        subprocess.run(["cmd.exe", "/c", "rd", "/s", "/q", profile_path], check=False)
                     except: pass
                 
                 # 3. Son kontrol: Klasör hâlâ silinmediyse kullanıcıyı uyar ve config'den silme
@@ -2011,7 +2022,72 @@ class VegaLauncher(QMainWindow):
                 QMessageBox.warning(self, "Uyarı", "Lütfen bir profil seçin.")
                 return
                 
+            need_login = False
             if not hasattr(self, 'ms_login') or not self.ms_login:
+                need_login = True
+            else:
+                token = self.ms_login.get("access_token", "")
+                is_valid = False
+                network_error = False
+                if token:
+                    try:
+                        import requests
+                        r = requests.get(
+                            "https://api.minecraftservices.com/minecraft/profile",
+                            headers={"Authorization": f"Bearer {token}"},
+                            timeout=5
+                        )
+                        if r.status_code == 200:
+                            is_valid = True
+                        elif r.status_code == 401:
+                            is_valid = False
+                        else:
+                            network_error = True
+                    except Exception as e:
+                        print(f"Token doğrulama ağ hatası: {e}")
+                        network_error = True
+
+                if not is_valid:
+                    if network_error:
+                        # Ağ hatası oluştu, oturum hala geçerli olabilir; çevrimdışı / önbellek ile başlatmayı dene
+                        self.statusBar().showMessage("Ağ hatası: Oturum doğrulanamadı, mevcut bilgilerle başlatılıyor...", 4000)
+                    else:
+                        refresh_token = self.ms_login.get("refresh_token")
+                        if refresh_token:
+                            try:
+                                import minecraft_launcher_lib.microsoft_account as ma
+                                from auth_window import CLIENT_ID, REDIRECT_URI
+                                refreshed = ma.complete_refresh(CLIENT_ID, None, REDIRECT_URI, refresh_token)
+                                if refreshed and "access_token" in refreshed:
+                                    self.ms_login = refreshed
+                                    self.save_config()
+                                    is_valid = True
+                            except Exception as e:
+                                print(f"Token yenileme hatası: {e}")
+                                err_str = str(e).lower()
+                                is_net_err = False
+                                try:
+                                    import requests
+                                    if isinstance(e, requests.exceptions.RequestException):
+                                        is_net_err = True
+                                except Exception:
+                                    pass
+                                if not is_net_err and isinstance(e, (OSError, IOError)):
+                                    is_net_err = True
+                                if not is_net_err and any(x in err_str for x in ["connection", "timeout", "network", "getaddrinfo", "max retries", "disconnected", "reset", "abort", "unreachable"]):
+                                    is_net_err = True
+
+                                if is_net_err:
+                                    QMessageBox.warning(
+                                        self,
+                                        "Bağlantı Hatası",
+                                        f"Oturum süresi dolmuş ancak internet bağlantısı kurulamadığı için yenilenemedi:\n{str(e)}"
+                                    )
+                                    return
+                        if not is_valid:
+                            need_login = True
+
+            if need_login:
                 dialog = MicrosoftLoginDialog(self)
                 if dialog.exec() == QDialog.Accepted:
                     self.ms_login = dialog.get_account_data()
@@ -2092,8 +2168,22 @@ class VegaLauncher(QMainWindow):
         import minecraft_launcher_lib
         try:
             import integrity_check
-            if not integrity_check.verify_integrity()[0]:
-                sys.exit(1)
+            is_valid, tampered = integrity_check.verify_integrity()
+            if not is_valid:
+                from PySide6.QtWidgets import QMessageBox
+                tampered_str = ", ".join(tampered) if tampered else "Bilinmeyen dosya"
+                QMessageBox.critical(
+                    self,
+                    "Güvenlik Uyarısı",
+                    f"Dosya bütünlük doğrulaması başarısız oldu!\n\nDeğiştirilen veya eksik dosyalar:\n{tampered_str}\n\n"
+                    "Lütfen 'python integrity_check.py generate' komutunu çalıştırarak bütünlüğü doğrulayın."
+                )
+                if hasattr(self, 'action_bar'):
+                    self.action_bar.play_btn.setEnabled(True)
+                    self.action_bar.play_btn.setText("OYNA")
+                    if hasattr(self.action_bar, 'progress'):
+                        self.action_bar.progress.setVisible(False)
+                return
                 
             if hasattr(self, 'action_bar'):
                 self.action_bar.play_btn.setEnabled(False)

@@ -14,7 +14,8 @@ FILES_TO_CHECK = [
     "server_thread.py",
     "ui_components.py",
     "server_downloader.py",
-    "shortcut_creator.py"
+    "shortcut_creator.py",
+    "app_updater.py"
 ]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -47,23 +48,36 @@ def verify_integrity():
         return True, []
         
     if not os.path.exists(INTEGRITY_FILE):
+        print("[BÜTÜNLÜK HATASI] .integrity dosyası bulunamadı!")
+        print("Çözüm: Bütünlük hash'lerini oluşturmak için 'python integrity_check.py generate' çalıştırın.")
         return False, ["<missing_integrity_file>"]
     
     try:
         with open(INTEGRITY_FILE, "r", encoding="utf-8") as f:
             expected_hashes = json.load(f)
-    except Exception:
+        if not isinstance(expected_hashes, dict):
+            raise ValueError(".integrity must contain a JSON object")
+    except Exception as e:
+        print(f"[BÜTÜNLÜK HATASI] .integrity dosyası okunamadı veya bozuk: {e}")
+        print("Çözüm: 'python integrity_check.py generate' çalıştırarak yeniden oluşturun.")
         return False, ["<invalid_integrity_file>"]
         
     tampered_files = []
     for filename in FILES_TO_CHECK:
-        if filename in expected_hashes:
-            abs_path = os.path.join(BASE_DIR, filename)
-            current_hash = calculate_file_hash(abs_path)
-            if current_hash != expected_hashes[filename]:
-                tampered_files.append(filename)
+        if filename not in expected_hashes:
+            tampered_files.append(f"{filename} (eksik hash)")
+            continue
+        abs_path = os.path.join(BASE_DIR, filename)
+        current_hash = calculate_file_hash(abs_path)
+        if current_hash is None or current_hash != expected_hashes[filename]:
+            tampered_files.append(filename)
     
     if tampered_files:
+        print("[BÜTÜNLÜK HATASI] Bütünlük doğrulaması başarısız oldu! Uyuşmayan/eksik dosyalar:")
+        for tf in tampered_files:
+            print(f"  - {tf}")
+        print("Çözüm: Dosyalarda değişiklik yaptıysanız bütünlüğü güncellemek için:")
+        print("  python integrity_check.py generate")
         return False, tampered_files
     return True, []
 
@@ -76,4 +90,4 @@ if __name__ == "__main__":
         if is_ok:
             print("Integrity check passed.")
         else:
-            print(f"Integrity check failed. Tampered files: {tampered}")
+            sys.exit(1)

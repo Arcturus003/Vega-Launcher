@@ -100,14 +100,21 @@ class ModrinthAPI:
 
     @staticmethod
     def download_file(url, dest_path):
+        part_path = f"{dest_path}.part"
         try:
             response = requests.get(url, stream=True, timeout=30)
             response.raise_for_status()
-            with open(dest_path, "wb") as f:
+            with open(part_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+            os.replace(part_path, dest_path)
             return True
         except Exception as e:
+            if os.path.exists(part_path):
+                try: os.remove(part_path)
+                except: pass
             print(f"İndirme Hatası: {e}")
             return False
 

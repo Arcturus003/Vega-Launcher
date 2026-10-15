@@ -5,7 +5,7 @@ src_dir = os.getcwd()
 dest_dir1 = os.path.join(src_dir, 'build_out', 'main')
 dest_dir2 = os.path.join(src_dir, 'build_out', 'main', '_internal')
 
-assets = ['style.qss', 'bg.jpg', 'enderman_icon.ico', 'assets', '.integrity']
+assets = ['style.qss', 'bg.jpg', 'enderman_icon.ico', 'assets', '.integrity', 'credentials.json']
 
 for dest_dir in [dest_dir1, dest_dir2]:
     for item in assets:
