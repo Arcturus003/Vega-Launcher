@@ -19,10 +19,6 @@ VegaLauncher_SourceCode.zip
 profiles/
 servers/
 minecraft_data/
-test_server/
-tests/
-test_c_dir/
-test_s_dir/
 
 # Test Scripts
 test_dl.py
@@ -47,3 +43,6 @@ launcher_config.json
 *.key
 
 dist/
+graphify-out/
+ownership-map-out/
+skills-lock.json

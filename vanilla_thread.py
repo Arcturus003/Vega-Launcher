@@ -1,32 +1,48 @@
 from PySide6.QtCore import QThread, Signal
-import minecraft_launcher_lib
+from runtime_provisioner import RuntimeProvisioner, RuntimeSpec, DEFAULT_PROVISIONER
+
 
 class DownloadVanillaThread(QThread):
     task_finished = Signal(bool, str)
     progress_update = Signal(str)
     progress_val = Signal(int)
-    
-    def __init__(self, version_id, minecraft_dir):
+
+    def __init__(self, version_id, minecraft_dir, provisioner: RuntimeProvisioner = None, lang: str = "tr"):
         super().__init__()
         self.version_id = version_id
         self.minecraft_dir = minecraft_dir
-        self._max_val = 0
-        
-    def _set_max(self, max_val):
-        self._max_val = max_val if max_val and max_val > 0 else 0
-        
-    def _set_progress(self, progress):
-        normalized = int((progress / self._max_val) * 100) if self._max_val > 0 else progress
-        self.progress_val.emit(min(100, max(0, normalized)))
-        
+        self.provisioner = provisioner or DEFAULT_PROVISIONER
+        self.lang = lang
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
     def run(self):
-        callback = {
-            "setStatus": lambda status: self.progress_update.emit(status),
-            "setProgress": self._set_progress,
-            "setMax": self._set_max
-        }
+        en = self.lang == "en"
+        cancel_msg = "Download cancelled by user." if en else "İndirme kullanıcı tarafından iptal edildi."
         try:
-            minecraft_launcher_lib.install.install_minecraft_version(self.version_id, self.minecraft_dir, callback=callback)
-            self.task_finished.emit(True, "Kurulum başarılı.")
+            if self._is_cancelled:
+                self.task_finished.emit(False, cancel_msg)
+                return
+
+            def on_progress(cur, tot, text):
+                if cur > 0:
+                    self.progress_val.emit(cur)
+                if text:
+                    self.progress_update.emit(text)
+
+            spec = RuntimeSpec(mc_version=self.version_id, loader="vanilla")
+            self.provisioner.install_client_runtime(
+                spec,
+                mc_dir=self.minecraft_dir,
+                on_progress=on_progress,
+                is_cancelled=lambda: self._is_cancelled,
+                lang=self.lang,
+            )
+            if self._is_cancelled:
+                self.task_finished.emit(False, cancel_msg)
+            else:
+                self.task_finished.emit(True, "Installation successful." if en else "Kurulum başarılı.")
         except Exception as e:
             self.task_finished.emit(False, str(e))

@@ -1,0 +1,42 @@
+<evaluation>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth search and project inspection tools, find the flagship Fabric rendering optimization mod originally authored by jellysquid3 (CaffeineMC). What is its exact 8-character Modrinth project ID?</question>
+    <answer>AANobbMI</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Search the Modrinth catalog via Vega MCP for the shader loader mod 'Iris Shaders' (slug 'iris'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>YL57xq9U</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Search the Modrinth catalog via Vega MCP for the Fabric API library mod ('fabric-api'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>P7dR8mSH</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, inspect the server performance profiling plugin/mod 'spark' (by lucko). What is its exact 8-character Modrinth project ID?</question>
+    <answer>l6YH9Als</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, search for the world-generation optimization mod 'Lithium' by CaffeineMC. What is its exact 8-character Modrinth project ID?</question>
+    <answer>gvQqBUqZ</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, find the popular minimap and world map mod 'Xaero's Minimap' (slug 'xaeros-minimap'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>1bokaNcj</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, search for the voice chat mod 'Simple Voice Chat' (slug 'simple-voice-chat'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>9eGKb6K1</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, search for the Fabric configuration screen mod 'Mod Menu' (slug 'modmenu'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>mOgUt4GM</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, inspect the entity culling optimization mod 'EntityCulling' (slug 'entityculling'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>NNAgCjsB</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Using the Vega MCP Modrinth tools, search for the memory usage optimization mod 'FerriteCore' (slug 'ferrite-core'). What is its exact 8-character Modrinth project ID?</question>
+    <answer>uXXizFIs</answer>
+  </qa_pair>
+</evaluation>

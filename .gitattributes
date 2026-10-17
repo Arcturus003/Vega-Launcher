@@ -9,3 +9,4 @@
 *.zip binary
 *.jar binary
 *.exe binary
+graphify-out/graph.json merge=graphify

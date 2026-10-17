@@ -58,10 +58,13 @@ def pick_installer_asset(release):
 
 class UpdateCheckThread(QThread):
     update_available = Signal(str, str, str, int)  # tag, url, name, size
+    no_update = Signal()
+    check_failed = Signal(str)
 
     def __init__(self, current_version, parent=None):
         super().__init__(parent)
         self.current_version = current_version
+        self.asset_digest = ""
 
     def run(self):
         try:
@@ -70,35 +73,46 @@ class UpdateCheckThread(QThread):
             with urllib.request.urlopen(req, timeout=10) as resp:
                 release = json.loads(resp.read().decode("utf-8"))
             if release.get("draft") or release.get("prerelease"):
+                self.no_update.emit()
                 return
             tag = release.get("tag_name", "")
             if not is_newer(tag, self.current_version):
+                self.no_update.emit()
                 return
             asset = pick_installer_asset(release)
             if not asset:
+                self.no_update.emit()
                 return
+            self.asset_digest = str(asset.get("digest") or "")
             self.update_available.emit(tag, asset["browser_download_url"],
                                        asset["name"], int(asset.get("size") or 0))
         except Exception as e:  # offline, 403 rate limit, JSON hatasi...
             print(f"[Updater] Guncelleme kontrolu atlandi: {e}")
+            self.check_failed.emit(str(e))
 
 
 class UpdateDownloadThread(QThread):
     progress = Signal(int)            # 0-100, bilinmiyorsa -1
     download_finished = Signal(bool, str)  # basari, dosya yolu / hata mesaji
 
-    def __init__(self, url, filename, parent=None):
+    def __init__(self, url, filename, parent=None, lang="tr", expected_digest=""):
         super().__init__(parent)
         self.url = url
         self.filename = os.path.basename(filename) or "VegaLauncher_Setup.exe"
+        self.lang = lang
+        self.expected_digest = str(expected_digest or "").strip()
         self._cancel = False
 
     def cancel(self):
         self._cancel = True
 
     def run(self):
-        dest = os.path.join(tempfile.gettempdir(), self.filename)
+        import hashlib
+        en = self.lang == "en"
+        temp_dir = tempfile.mkdtemp(prefix="vega_update_")
+        dest = os.path.join(temp_dir, self.filename)
         part = dest + ".part"
+        hasher = hashlib.sha256()
         try:
             req = urllib.request.Request(self.url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=30) as resp, open(part, "wb") as f:
@@ -106,23 +120,28 @@ class UpdateDownloadThread(QThread):
                 done = 0
                 while True:
                     if self._cancel:
-                        raise RuntimeError("Iptal edildi")
+                        raise RuntimeError("Cancelled" if en else "Iptal edildi")
                     chunk = resp.read(64 * 1024)
                     if not chunk:
                         break
                     f.write(chunk)
+                    hasher.update(chunk)
                     done += len(chunk)
                     self.progress.emit(int(done * 100 / total) if total else -1)
             if total and done != total:
-                raise RuntimeError("Indirme eksik kaldi")
+                raise RuntimeError("Incomplete download" if en else "Indirme eksik kaldi")
+            if self.expected_digest.lower().startswith("sha256:"):
+                expected_hex = self.expected_digest.split(":", 1)[1].strip().lower()
+                if expected_hex and hasher.hexdigest().lower() != expected_hex:
+                    raise RuntimeError("Installer SHA-256 verification failed" if en else "Kurulum dosyası SHA-256 doğrulaması başarısız")
             if os.path.exists(dest):
                 os.remove(dest)
             os.replace(part, dest)
             self.download_finished.emit(True, dest)
         except Exception as e:
             try:
-                if os.path.exists(part):
-                    os.remove(part)
+                import shutil
+                shutil.rmtree(temp_dir, ignore_errors=True)
             except Exception:
                 pass
             self.download_finished.emit(False, str(e))
@@ -148,27 +167,60 @@ class AppUpdater(QObject):
         self._threads = []
         self._progress_dialog = None
 
+    def _lang(self):
+        if self.window and hasattr(self.window, "settings") and isinstance(self.window.settings, dict):
+            return self.window.settings.get("language", "tr")
+        return getattr(self.window, "lang", "tr")
+
     def _keep(self, t):
         self._threads.append(t)
         t.finished.connect(lambda t=t: self._threads.remove(t) if t in self._threads else None)
 
-    def check(self):
+    def check(self, manual=False):
         t = UpdateCheckThread(self.current_version)
+        self._last_check_thread = t
         t.update_available.connect(self._on_update_available)
+        if manual:
+            t.no_update.connect(lambda: QMessageBox.information(
+                self.window,
+                "Up to Date" if self._lang() == "en" else "Güncel",
+                f"Vega Launcher is up to date! (Version: v{self.current_version})"
+                if self._lang() == "en" else
+                f"Vega Launcher güncel! (Sürüm: v{self.current_version})"
+            ))
+            t.check_failed.connect(lambda err: QMessageBox.warning(
+                self.window,
+                "Update Check" if self._lang() == "en" else "Güncelleme Kontrolü",
+                f"Could not reach update server:\n{err}"
+                if self._lang() == "en" else
+                f"Güncelleme sunucusuna ulaşılamadı:\n{err}"
+            ))
         self._keep(t)
         t.start()
 
     def _on_update_available(self, tag, url, name, size):
+        lang = self._lang()
+        en = lang == "en"
         size_txt = f" ({size / 1024 / 1024:.1f} MB)" if size else ""
         ans = QMessageBox.question(
-            self.window, "Güncelleme",
-            f"Yeni sürüm var ({tag}){size_txt}. Şimdi güncellensin mi?\n\n"
-            f"Mevcut sürüm: v{self.current_version}",
+            self.window,
+            "Update" if en else "Güncelleme",
+            (
+                f"A new version is available ({tag}){size_txt}. Update now?\n\n"
+                f"Current version: v{self.current_version}"
+            ) if en else (
+                f"Yeni sürüm var ({tag}){size_txt}. Şimdi güncellensin mi?\n\n"
+                f"Mevcut sürüm: v{self.current_version}"
+            ),
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
         if ans != QMessageBox.Yes:
             return
-        dlg = QProgressDialog("Güncelleme indiriliyor...", "İptal", 0, 100, self.window)
-        dlg.setWindowTitle("Vega Launcher Güncelleme")
+        dlg = QProgressDialog(
+            "Downloading update..." if en else "Güncelleme indiriliyor...",
+            "Cancel" if en else "İptal",
+            0, 100, self.window
+        )
+        dlg.setWindowTitle("Vega Launcher Update" if en else "Vega Launcher Güncelleme")
         dlg.setWindowModality(Qt.WindowModal)
         dlg.setMinimumDuration(0)
         dlg.setAutoClose(False)
@@ -176,7 +228,8 @@ class AppUpdater(QObject):
         dlg.setValue(0)
         self._progress_dialog = dlg
 
-        t = UpdateDownloadThread(url, name)
+        digest = getattr(getattr(self, "_last_check_thread", None), "asset_digest", "")
+        t = UpdateDownloadThread(url, name, lang=lang, expected_digest=digest)
         t.progress.connect(self._on_progress)
         t.download_finished.connect(self._on_download_finished)
         dlg.canceled.connect(t.cancel)
@@ -195,18 +248,27 @@ class AppUpdater(QObject):
             dlg.setValue(pct)
 
     def _on_download_finished(self, ok, result):
+        en = self._lang() == "en"
         dlg, self._progress_dialog = self._progress_dialog, None
         was_canceled = dlg.wasCanceled() if dlg else False
         if dlg:
             dlg.close()
         if not ok:
             if not was_canceled:
-                QMessageBox.warning(self.window, "Güncelleme",
-                                    f"Güncelleme indirilemedi:\n{result}")
+                QMessageBox.warning(
+                    self.window,
+                    "Update" if en else "Güncelleme",
+                    f"Could not download update:\n{result}" if en else f"Güncelleme indirilemedi:\n{result}"
+                )
             return
         if not launch_installer(result):
-            QMessageBox.warning(self.window, "Güncelleme",
-                                f"Kurulum başlatılamadı. Elle çalıştırabilirsiniz:\n{result}")
+            QMessageBox.warning(
+                self.window,
+                "Update" if en else "Güncelleme",
+                f"Could not start installer. You can run it manually:\n{result}"
+                if en else
+                f"Kurulum başlatılamadı. Elle çalıştırabilirsiniz:\n{result}"
+            )
             return
         # Kurulum dosyalari degistirebilsin diye uygulamayi kapat.
         self.window.close()

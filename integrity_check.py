@@ -14,8 +14,20 @@ FILES_TO_CHECK = [
     "server_thread.py",
     "ui_components.py",
     "server_downloader.py",
-    "shortcut_creator.py",
-    "app_updater.py"
+    "app_updater.py",
+    "sound_manager.py",
+    "particle_overlay.py",
+    "theme_manager.py",
+    "runtime_provisioner.py",
+    "profile_store.py",
+    "server_instance.py",
+    "backup_manager.py",
+    "vega_mcp_server.py",
+    "legacy_mcp_server.py",
+    "launch_pipeline.py",
+    "server_console_parser.py",
+    "auth_vault.py",
+    "server_process_coordinator.py"
 ]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

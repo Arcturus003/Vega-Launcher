@@ -1,5 +1,5 @@
 ; MyAppVersion main.py icindeki __version__ ile AYNI olmalidir (bkz. RELEASING.md)
-#define MyAppVersion "1.0.3"
+#define MyAppVersion "2.0.0"
 
 [Setup]
 AppName=Vega Launcher
