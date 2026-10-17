@@ -98,6 +98,25 @@ class TestSingleInstance(unittest.TestCase):
         mock_window._get_profile_item.assert_called_with("profile_from_second_instance")
         mock_window.activateWindow.assert_called()
 
+    def test_single_instance_named_mutex_detection(self):
+        """Verifies Windows Named Mutex atomic collision detection."""
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        test_mutex_name = "Global\\VegaLauncher_UnitTest_Mutex"
+        h1 = kernel32.CreateMutexW(None, False, test_mutex_name)
+        try:
+            self.assertNotEqual(h1, 0)
+            h2 = kernel32.CreateMutexW(None, False, test_mutex_name)
+            try:
+                err = kernel32.GetLastError()
+                self.assertEqual(err, 183)  # ERROR_ALREADY_EXISTS
+            finally:
+                if h2:
+                    kernel32.CloseHandle(h2)
+        finally:
+            if h1:
+                kernel32.CloseHandle(h1)
+
 
 if __name__ == "__main__":
     unittest.main()

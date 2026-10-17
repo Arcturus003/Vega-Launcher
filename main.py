@@ -5313,6 +5313,14 @@ def activate_window(window):
         window.show()
         window.raise_()
         window.activateWindow()
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = int(window.winId())
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -5370,17 +5378,49 @@ if __name__ == "__main__":
     app.setApplicationName('Vega Launcher')
     app.setOrganizationName('Arcturus')
 
+    SINGLE_INSTANCE_MUTEX = "Global\\VegaLauncher_SingleInstance_Mutex"
     SINGLE_INSTANCE_SERVER = "vega_launcher_single_instance_ipc"
+    mutex_handle = None
+
     if os.environ.get("VEGA_ALLOW_MULTIPLE") != "1":
-        from PySide6.QtNetwork import QLocalSocket
-        sock = QLocalSocket()
-        sock.connectToServer(SINGLE_INSTANCE_SERVER)
-        if sock.waitForConnected(400):
-            # Another instance already running: forward CLI arguments and exit cleanly
-            payload = json.dumps(sys.argv[1:]).encode("utf-8")
-            sock.write(payload)
-            sock.waitForBytesWritten(1000)
-            sock.disconnectFromServer()
+        already_running = False
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            mutex_handle = kernel32.CreateMutexW(None, False, SINGLE_INSTANCE_MUTEX)
+            if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+                already_running = True
+        except Exception:
+            already_running = False
+
+        if already_running:
+            from PySide6.QtNetwork import QLocalSocket
+            import time
+            sock = QLocalSocket()
+            connected = False
+            for _ in range(30):  # Retry for up to 3.0s if primary instance is still initializing
+                sock.connectToServer(SINGLE_INSTANCE_SERVER)
+                if sock.waitForConnected(100):
+                    connected = True
+                    break
+                time.sleep(0.1)
+
+            if connected:
+                payload = json.dumps(sys.argv[1:]).encode("utf-8")
+                sock.write(payload)
+                sock.waitForBytesWritten(1000)
+                sock.disconnectFromServer()
+            else:
+                try:
+                    import ctypes
+                    user32 = ctypes.windll.user32
+                    hwnd = user32.FindWindowW(None, "Vega Launcher")
+                    if hwnd:
+                        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                        user32.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
+
             sys.exit(0)
     
     if getattr(sys, 'frozen', False):
@@ -5408,6 +5448,7 @@ if __name__ == "__main__":
     # Tek ornek (Single instance) IPC dinleyicisini baslat
     if os.environ.get("VEGA_ALLOW_MULTIPLE") != "1":
         window._single_instance_server = setup_single_instance(window, SINGLE_INSTANCE_SERVER)
+        window._single_instance_mutex = mutex_handle
         app.aboutToQuit.connect(lambda: cleanup_single_instance(SINGLE_INSTANCE_SERVER))
 
     # GitHub Releases uzerinden guncelleme kontrolu (arka planda, hata olursa sessiz)

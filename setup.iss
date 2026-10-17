@@ -29,4 +29,4 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; Normal kurulumda: son ekranda "Vega Launcher'i baslat" secenegi
 Filename: "{app}\main.exe"; WorkingDir: "{app}"; Description: "Vega Launcher'ı başlat"; Flags: nowait postinstall skipifsilent
 ; Otomatik (sessiz) guncellemeden sonra uygulamayi yeniden ac
-Filename: "{app}\main.exe"; WorkingDir: "{app}"; Flags: nowait postinstall skipifnotsilent runasoriginaluser
+Filename: "{app}\main.exe"; WorkingDir: "{app}"; Flags: nowait skipifnotsilent runasoriginaluser
