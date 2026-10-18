@@ -22,11 +22,10 @@ Dahili Modrinth desteği, otomatik Java kurulumu ve profil izolasyonuna sahip h�
 
 ## Kurulum
 
-En son kurulum paketini [Releases](https://github.com/Arcturus003/Vega-Launcher/releases/latest) sayfasından indirin:
-
-👉 **[VegaLauncher_Setup_v2.0.0.exe İndir](https://github.com/Arcturus003/Vega-Launcher/releases/latest)**
-
-Kurulumu tamamlayın, Microsoft hesabınızla giriş yapın ve oynamaya başlayın.
+Şu anda Vega Launcher bağımsız bir Windows kurulum dosyası olarak dağıtılmaktadır:
+1. [Releases](https://github.com/Arcturus003/Vega-Launcher/releases) sekmesinden en güncel `VegaLauncher_Setup_vX.X.X.exe` dosyasını indirin.
+2. Kurulumu tamamlayın ve yönergeleri izleyin.
+3. Microsoft hesabınızla giriş yapın ve oynamaya başlayın!
 
 ## Kaynak Koddan Çalıştırma
 

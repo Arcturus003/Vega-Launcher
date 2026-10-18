@@ -22,11 +22,10 @@ English • [Türkçe](README_TR.md)
 
 ## Installation
 
-Download the latest installer from the [Releases](https://github.com/Arcturus003/Vega-Launcher/releases/latest) page:
-
-👉 **[Download VegaLauncher_Setup_v2.0.0.exe](https://github.com/Arcturus003/Vega-Launcher/releases/latest)**
-
-Run the setup wizard, sign in with your Microsoft account, and launch the game.
+Currently, Vega Launcher is distributed as a standalone Windows installer:
+1. Download the latest `VegaLauncher_Setup_vX.X.X.exe` from the [Releases](https://github.com/Arcturus003/Vega-Launcher/releases) tab.
+2. Run the installer and follow the instructions.
+3. Sign in with your Microsoft account and start playing!
 
 ## Building from Source
 
