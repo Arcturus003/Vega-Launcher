@@ -113,6 +113,47 @@ class WorldBackupThread(QThread):
         except Exception as e:
             self.backup_finished.emit(False, str(e))
 
+class WorldScannerThread(QThread):
+    worlds_scanned = Signal(list)
+
+    def __init__(self, saves_dir: str, parent=None):
+        super().__init__(parent)
+        self.saves_dir = saves_dir
+
+    def run(self):
+        import datetime
+        results = []
+        try:
+            if not os.path.exists(self.saves_dir):
+                self.worlds_scanned.emit([])
+                return
+            worlds = [d for d in os.listdir(self.saves_dir) if os.path.isdir(os.path.join(self.saves_dir, d))]
+            for w in sorted(worlds):
+                w_path = os.path.join(self.saves_dir, w)
+                total_bytes = 0
+                level_dat = os.path.join(w_path, "level.dat")
+                latest_mtime = os.path.getmtime(level_dat) if os.path.exists(level_dat) else os.path.getmtime(w_path)
+                file_count = 0
+                for r, _, files in os.walk(w_path):
+                    for f in files:
+                        fp = os.path.join(r, f)
+                        try:
+                            total_bytes += os.path.getsize(fp)
+                        except OSError:
+                            pass
+                        file_count += 1
+                        if file_count > 2500:
+                            break
+                    if file_count > 2500:
+                        break
+                size_mb = total_bytes / (1024 * 1024)
+                dt_str = datetime.datetime.fromtimestamp(latest_mtime).strftime("%Y-%m-%d %H:%M")
+                results.append((w, w_path, size_mb, dt_str))
+        except Exception:
+            pass
+        self.worlds_scanned.emit(results)
+
+
 class ModItemWidget(QWidget):
     def __init__(self, filepath, parent_list, lang="tr"):
         super().__init__()
@@ -197,49 +238,16 @@ class ModItemWidget(QWidget):
         return QSize(100, 54)
         
     def update_toggle_style(self):
-        theme_key = getattr(self.parent_list, "_active_theme", None)
-        try:
-            import theme_manager
-            t = theme_manager.get_theme(theme_key or "electric_amethyst")
-            grad_start = t.get("gradient_start", "#7C3AED")
-            primary = t.get("primary", "#8B5CF6")
-            bevel_top = t.get("bevel_top", "#A78BFA")
-            bevel_bottom = t.get("bevel_bottom", "#4C1D95")
-            pressed = t.get("pressed", "#6D28D9")
-            glow = t.get("glow", "#C084FC")
-        except Exception:
-            grad_start = "#7C3AED"
-            primary = "#8B5CF6"
-            bevel_top = "#A78BFA"
-            bevel_bottom = "#4C1D95"
-            pressed = "#6D28D9"
-            glow = "#C084FC"
+        if hasattr(self.parent_list, "_get_toggle_styles"):
+            on_style, off_style = self.parent_list._get_toggle_styles()
+        else:
+            on_style, off_style = "", ""
 
         if self.is_disabled:
             self.toggle_btn.setText("OFF" if self.lang == "en" else "KAPALI")
             self.toggle_btn.setToolTip("Enable Mod" if self.lang == "en" else "Modu Etkinleştir")
-            self.toggle_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #26262B;
-                    color: #94A3B8;
-                    border: 1px solid #1C1C20;
-                    border-top: 1px solid #383842;
-                    border-bottom: 2px solid #18181C;
-                    border-radius: 4px;
-                    font-family: 'Monocraft', 'Minecraft Five', 'Minecraft', sans-serif;
-                    font-weight: 700;
-                    font-size: 10pt;
-                    letter-spacing: 0.5px;
-                    padding: 0px;
-                }
-                QPushButton:hover {
-                    background-color: #2F2F36;
-                    color: #CBD5E1;
-                }
-                QPushButton:pressed {
-                    background-color: #1C1C20;
-                }
-            """)
+            if off_style:
+                self.toggle_btn.setStyleSheet(off_style)
             self.name_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #64748B; background: transparent;")
             if hasattr(self, "sub_lbl"):
                 self.sub_lbl.setStyleSheet("font-size: 11px; color: #475569; background: transparent;")
@@ -248,35 +256,14 @@ class ModItemWidget(QWidget):
         else:
             self.toggle_btn.setText("ON" if self.lang == "en" else "AÇIK")
             self.toggle_btn.setToolTip("Disable Mod" if self.lang == "en" else "Modu Devre Dışı Bırak")
-            self.toggle_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {grad_start};
-                    color: #FFFFFF;
-                    border: 1px solid {pressed};
-                    border-top: 1.5px solid {bevel_top};
-                    border-left: 1px solid {primary};
-                    border-right: 1px solid {pressed};
-                    border-bottom: 2.5px solid {bevel_bottom};
-                    border-radius: 4px;
-                    font-family: 'Monocraft', 'Minecraft Five', 'Minecraft', sans-serif;
-                    font-weight: 700;
-                    font-size: 10pt;
-                    letter-spacing: 0.5px;
-                    padding: 0px;
-                }}
-                QPushButton:hover {{
-                    background-color: {primary};
-                    border-top: 1.5px solid {glow};
-                }}
-                QPushButton:pressed {{
-                    background-color: {pressed};
-                    border-top: 2.5px solid {bevel_bottom};
-                    border-bottom: 1px solid {bevel_top};
-                }}
-            """)
+            if on_style:
+                self.toggle_btn.setStyleSheet(on_style)
             self.name_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #F8FAFC; background: transparent;")
             if hasattr(self, "sub_lbl"):
                 self.sub_lbl.setStyleSheet("font-size: 11px; color: #94A3B8; background: transparent;")
+            if hasattr(self, "icon_box"):
+                self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;")
+
             if hasattr(self, "icon_box"):
                 self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;")
 
@@ -348,6 +335,12 @@ class InstalledModsPanel(QWidget):
         self._mod_load_gen = 0
         self._pending_mods = []
         self._pending_idx = 0
+        self._last_dir_mtime = -1
+        self._last_loaded_count = 0
+        self._cached_toggle_styles_theme = None
+        self._cached_on_style = ""
+        self._cached_off_style = ""
+        self._world_scanner_thread = None
         
         from PySide6.QtWidgets import QStackedWidget, QPlainTextEdit
         from PySide6.QtCore import QSize
@@ -639,8 +632,84 @@ class InstalledModsPanel(QWidget):
         elif index == 3:
             self.refresh_logs()
 
+    def _get_toggle_styles(self):
+        theme_key = getattr(self, "_active_theme", None) or "electric_amethyst"
+        if getattr(self, "_cached_toggle_styles_theme", None) == theme_key and self._cached_on_style:
+            return self._cached_on_style, self._cached_off_style
+
+        try:
+            import theme_manager
+            t = theme_manager.get_theme(theme_key)
+            grad_start = t.get("gradient_start", "#7C3AED")
+            primary = t.get("primary", "#8B5CF6")
+            bevel_top = t.get("bevel_top", "#A78BFA")
+            bevel_bottom = t.get("bevel_bottom", "#4C1D95")
+            pressed = t.get("pressed", "#6D28D9")
+            glow = t.get("glow", "#C084FC")
+        except Exception:
+            grad_start = "#7C3AED"
+            primary = "#8B5CF6"
+            bevel_top = "#A78BFA"
+            bevel_bottom = "#4C1D95"
+            pressed = "#6D28D9"
+            glow = "#C084FC"
+
+        self._cached_on_style = f"""
+            QPushButton {{
+                background-color: {grad_start};
+                color: #FFFFFF;
+                border: 1px solid {pressed};
+                border-top: 1.5px solid {bevel_top};
+                border-left: 1px solid {primary};
+                border-right: 1px solid {pressed};
+                border-bottom: 2.5px solid {bevel_bottom};
+                border-radius: 4px;
+                font-family: 'Monocraft', 'Minecraft Five', 'Minecraft', sans-serif;
+                font-weight: 700;
+                font-size: 10pt;
+                letter-spacing: 0.5px;
+                padding: 0px;
+            }}
+            QPushButton:hover {{
+                background-color: {primary};
+                border-top: 1.5px solid {glow};
+            }}
+            QPushButton:pressed {{
+                background-color: {pressed};
+                border-top: 2.5px solid {bevel_bottom};
+                border-bottom: 1px solid {bevel_top};
+            }}
+        """
+        self._cached_off_style = """
+            QPushButton {
+                background-color: #26262B;
+                color: #94A3B8;
+                border: 1px solid #1C1C20;
+                border-top: 1px solid #383842;
+                border-bottom: 2px solid #18181C;
+                border-radius: 4px;
+                font-family: 'Monocraft', 'Minecraft Five', 'Minecraft', sans-serif;
+                font-weight: 700;
+                font-size: 10pt;
+                letter-spacing: 0.5px;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #2F2F36;
+                color: #CBD5E1;
+            }
+            QPushButton:pressed {
+                background-color: #1C1C20;
+            }
+        """
+        self._cached_toggle_styles_theme = theme_key
+        return self._cached_on_style, self._cached_off_style
+
     def set_theme(self, theme_key: str):
         self._active_theme = theme_key
+        self._cached_toggle_styles_theme = None
+        self._cached_on_style = ""
+        self._cached_off_style = ""
         try:
             import theme_manager
             t = theme_manager.get_theme(theme_key)
@@ -692,9 +761,30 @@ class InstalledModsPanel(QWidget):
                     w = self.mod_list.itemWidget(self.mod_list.item(i))
                     if w and hasattr(w, "update_toggle_style"):
                         w.update_toggle_style()
-            self.switch_sub_tab(self.sub_stack.currentIndex())
+            cur_idx = self.sub_stack.currentIndex()
+            for i, btn in enumerate(self.sub_tab_btns):
+                is_active = (i == cur_idx)
+                btn.setProperty("active", "true" if is_active else "false")
+                btn.style().unpolish(btn)
+                btn.style().polish(btn)
+                if is_active:
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: #261E38;
+                            color: #FFFFFF;
+                            border: 1px solid {prim_light};
+                            border-top: 1.5px solid {prim_light};
+                            border-bottom: 2.5px solid #4C1D95;
+                            border-radius: 4px;
+                            font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                            font-size: 11px;
+                            font-weight: bold;
+                            padding: 6px 12px;
+                        }}
+                    """)
         except Exception:
             pass
+
 
     def set_language(self, lang="tr"):
         self.lang = lang
@@ -741,9 +831,20 @@ class InstalledModsPanel(QWidget):
         dlg.exec()
         
     def load_mods(self, mods_dir, pdata=None, pid=None, main_window=None):
+        dir_mtime = os.path.getmtime(mods_dir) if mods_dir and os.path.exists(mods_dir) else 0
+        if (
+            getattr(self, "current_dir", None) == mods_dir
+            and getattr(self, "pid", None) == pid
+            and getattr(self, "_last_dir_mtime", -1) == dir_mtime
+            and getattr(self, "_last_loaded_count", 0) == self.mod_list.count()
+            and self.mod_list.count() > 0
+        ):
+            return
+
         self.current_dir = mods_dir
         self.pdata = pdata
         self.pid = pid
+        self._last_dir_mtime = dir_mtime
         self.main_window = main_window
         if hasattr(self, "mod_search_input"):
             self.mod_search_input.blockSignals(True)
@@ -821,12 +922,13 @@ class InstalledModsPanel(QWidget):
     def _load_mod_batch(self, gen, initial=False):
         if getattr(self, "_mod_load_gen", 0) != gen:
             return
-        batch_size = 15 if initial else 35
+        batch_size = 20 if initial else 30
         end_idx = min(self._pending_idx + batch_size, len(self._pending_mods))
         query = self.mod_search_input.text().strip().lower() if hasattr(self, "mod_search_input") else ""
         
         from PySide6.QtCore import QSize, QTimer
         self.mod_list.setUpdatesEnabled(False)
+        self.mod_list.blockSignals(True)
         try:
             for i in range(self._pending_idx, end_idx):
                 mod = self._pending_mods[i]
@@ -840,15 +942,17 @@ class InstalledModsPanel(QWidget):
                     item.setHidden(True)
                 self.mod_list.setItemWidget(item, widget)
         finally:
+            self.mod_list.blockSignals(False)
             self.mod_list.setUpdatesEnabled(True)
             
         self._pending_idx = end_idx
         total = len(self._pending_mods)
+        self._last_loaded_count = total
         current_count = self.mod_list.count()
         self._update_mod_count_label(current_count, total)
         
         if self._pending_idx < total:
-            QTimer.singleShot(0, lambda: self._load_mod_batch(gen))
+            QTimer.singleShot(8, lambda: self._load_mod_batch(gen))
 
     def refresh_worlds(self):
         import datetime
@@ -869,29 +973,36 @@ class InstalledModsPanel(QWidget):
             item.setFlags(Qt.NoItemFlags)
             self.world_list.addItem(item)
             return
+
+        # Instant display with fast level.dat mtime (0ms UI freeze)
         for w in sorted(worlds):
             w_path = os.path.join(saves_dir, w)
-            total_bytes = 0
             level_dat = os.path.join(w_path, "level.dat")
             latest_mtime = os.path.getmtime(level_dat) if os.path.exists(level_dat) else os.path.getmtime(w_path)
-            file_count = 0
-            for r, _, files in os.walk(w_path):
-                for f in files:
-                    fp = os.path.join(r, f)
-                    try:
-                        total_bytes += os.path.getsize(fp)
-                    except OSError:
-                        pass
-                    file_count += 1
-                    if file_count > 2500:
-                        break
-                if file_count > 2500:
-                    break
-            size_mb = total_bytes / (1024 * 1024)
             dt_str = datetime.datetime.fromtimestamp(latest_mtime).strftime("%Y-%m-%d %H:%M")
-            item = QListWidgetItem(f"{w}   •   {size_mb:.1f} MB   •   {dt_str}")
+            calc_txt = "calculating..." if en else "hesaplanıyor..."
+            item = QListWidgetItem(f"{w}   •   {calc_txt}   •   {dt_str}")
             item.setData(Qt.UserRole, w_path)
             self.world_list.addItem(item)
+
+        # Background thread for deep disk size scanning without blocking GUI
+        if getattr(self, "_world_scanner_thread", None) and self._world_scanner_thread.isRunning():
+            return
+        self._world_scanner_thread = WorldScannerThread(saves_dir, parent=self)
+        self._world_scanner_thread.worlds_scanned.connect(self._on_worlds_scanned)
+        self._world_scanner_thread.start()
+
+    def _on_worlds_scanned(self, results):
+        if not results:
+            return
+        res_map = {path: (size_mb, dt_str, name) for name, path, size_mb, dt_str in results}
+        for i in range(self.world_list.count()):
+            item = self.world_list.item(i)
+            w_path = item.data(Qt.UserRole)
+            if w_path in res_map:
+                size_mb, dt_str, name = res_map[w_path]
+                item.setText(f"{name}   •   {size_mb:.1f} MB   •   {dt_str}")
+
 
     def backup_selected_world(self):
         import datetime

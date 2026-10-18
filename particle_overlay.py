@@ -18,7 +18,7 @@ import os
 import math
 import random
 from typing import List, Dict, Any, Optional
-from PySide6.QtCore import Qt, QTimer, QRectF
+from PySide6.QtCore import Qt, QTimer, QRectF, QEvent
 from PySide6.QtGui import QPainter, QColor, QBrush, QPixmap, QPaintEvent
 from PySide6.QtWidgets import QWidget
 
@@ -337,6 +337,17 @@ class ParticleOverlay(QWidget):
         if self._enabled and not self.timer.isActive():
             self.timer.start()
 
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.WindowStateChange:
+            win = self.window()
+            if win and win.isMinimized():
+                if self.timer.isActive():
+                    self.timer.stop()
+            elif self._enabled and not self._is_paused:
+                if not self.timer.isActive():
+                    self.timer.start()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         w = float(self.width())
@@ -350,8 +361,13 @@ class ParticleOverlay(QWidget):
     def _on_tick(self):
         if not self._enabled or self._is_paused:
             return
+        win = self.window()
+        if win and (win.isMinimized() or not win.isVisible()):
+            return
         w = float(self.width())
         h = float(self.height())
+        if w <= 10 or h <= 10:
+            return
         c_len = max(1, len(self.palette))
         for p in self.particles:
             p.update(w, h, self._active_sequences, c_len)
@@ -360,6 +376,11 @@ class ParticleOverlay(QWidget):
     def paintEvent(self, event: QPaintEvent):
         if not self._enabled or not self.particles:
             return
+        win = self.window()
+        if win and (win.isMinimized() or not win.isVisible()):
+            return
+        if self.width() <= 10 or self.height() <= 10:
+            return
 
         painter = QPainter(self)
         c_count = len(self.palette)
@@ -367,6 +388,7 @@ class ParticleOverlay(QWidget):
         if opacity_mult <= 0.001:
             painter.end()
             return
+
 
         if self._active_sequences:
             # Render animated Minecraft pixel art particle sequences

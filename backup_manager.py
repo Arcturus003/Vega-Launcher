@@ -8,18 +8,39 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Protocol, Tuple
 
 from auth_window import needs_rebind_token, protect_token, unprotect_token
-try:
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
-except ImportError:
-    Request = None
-    Credentials = None
-    InstalledAppFlow = None
-    build = None
-    MediaFileUpload = None
+_GOOGLE_DRIVE_DEPS_LOADED = False
+
+
+def _ensure_google_drive():
+    global _GOOGLE_DRIVE_DEPS_LOADED
+    if _GOOGLE_DRIVE_DEPS_LOADED:
+        return
+    _GOOGLE_DRIVE_DEPS_LOADED = True
+    try:
+        from google.auth.transport.requests import Request as _Request
+        from google.oauth2.credentials import Credentials as _Credentials
+        from google_auth_oauthlib.flow import InstalledAppFlow as _Flow
+        from googleapiclient.discovery import build as _build
+        from googleapiclient.http import MediaFileUpload as _Upload
+        globals()["Request"] = _Request
+        globals()["Credentials"] = _Credentials
+        globals()["InstalledAppFlow"] = _Flow
+        globals()["build"] = _build
+        globals()["MediaFileUpload"] = _Upload
+    except ImportError:
+        globals()["Request"] = None
+        globals()["Credentials"] = None
+        globals()["InstalledAppFlow"] = None
+        globals()["build"] = None
+        globals()["MediaFileUpload"] = None
+
+
+def __getattr__(name: str):
+    if name in ("Request", "Credentials", "InstalledAppFlow", "build", "MediaFileUpload"):
+        _ensure_google_drive()
+        return globals().get(name)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
 
 
 def _default_base_dir() -> str:
@@ -110,6 +131,7 @@ class GoogleDriveBackupAdapter:
 
         token_path = os.path.join(self.base_dir, "token.json")
         media = None
+        _ensure_google_drive()
         try:
             if on_stage:
                 on_stage("Connecting to Google Drive..." if en else "Google Drive'a bağlanılıyor...")

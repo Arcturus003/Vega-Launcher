@@ -5388,7 +5388,7 @@ if __name__ == "__main__":
             import ctypes
             kernel32 = ctypes.windll.kernel32
             mutex_handle = kernel32.CreateMutexW(None, False, SINGLE_INSTANCE_MUTEX)
-            if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            if kernel32.GetLastError() in (183, 5):  # ERROR_ALREADY_EXISTS or ERROR_ACCESS_DENIED
                 already_running = True
         except Exception:
             already_running = False
