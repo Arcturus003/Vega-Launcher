@@ -414,9 +414,36 @@ class RuntimeProvisioner:
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 for line in iter(process.stdout.readline, ""):
+                    if _cancelled():
+                        try:
+                            process.terminate()
+                            process.wait(timeout=2)
+                        except Exception:
+                            try:
+                                process.kill()
+                            except Exception:
+                                pass
+                        raise Exception("Server download cancelled." if en else "Sunucu indirme işlemi iptal edildi.")
                     if line:
                         _log(f"Installing: {line.strip()[:80]}" if en else f"Kurulum: {line.strip()[:80]}")
-                process.wait()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    if _cancelled():
+                        try:
+                            process.kill()
+                        except Exception:
+                            pass
+                        raise Exception("Server download cancelled." if en else "Sunucu indirme işlemi iptal edildi.")
+                    process.wait()
+
+                if _cancelled():
+                    try:
+                        process.kill()
+                    except Exception:
+                        pass
+                    raise Exception("Server download cancelled." if en else "Sunucu indirme işlemi iptal edildi.")
+
                 if process.returncode == 0:
                     _log(f"[INFO] {software} installation completed." if en else f"[BİLGİ] {software} kurulumu tamamlandı.")
                     for f in os.listdir(server_dir):

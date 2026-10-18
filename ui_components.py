@@ -175,13 +175,13 @@ class ModItemWidget(QWidget):
         
         # Subtle file type icon box
         self.icon_box = QFrame()
+        self.icon_box.setObjectName("ModTypeBox")
         self.icon_box.setFixedSize(32, 32)
-        self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;")
         icon_lay = QVBoxLayout(self.icon_box)
         icon_lay.setContentsMargins(0, 0, 0, 0)
         icon_lbl = QLabel("PAK" if display_fn.endswith(".pak") else "JAR")
+        icon_lbl.setObjectName("ModTypeLbl")
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #94A3B8; background: transparent;")
         icon_lay.addWidget(icon_lbl)
         layout.addWidget(self.icon_box)
 
@@ -191,12 +191,13 @@ class ModItemWidget(QWidget):
         text_layout.setAlignment(Qt.AlignVCenter)
         
         self.name_lbl = QLabel(self.title_text)
+        self.name_lbl.setObjectName("ModNameLbl")
         self.name_lbl.setToolTip(f"{self.title_text}\n{filename}")
         self.name_lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         text_layout.addWidget(self.name_lbl)
         
         self.sub_lbl = QLabel(self.subtitle_text)
-        self.sub_lbl.setStyleSheet("font-size: 11px; color: #94A3B8; background: transparent;")
+        self.sub_lbl.setObjectName("ModSubLbl")
         text_layout.addWidget(self.sub_lbl)
         
         layout.addLayout(text_layout, 1)
@@ -205,16 +206,41 @@ class ModItemWidget(QWidget):
         self.toggle_btn.setFixedSize(84, 30)
         self.toggle_btn.setFont(QFont("Monocraft", 10, QFont.Bold))
         self.toggle_btn.setCursor(Qt.PointingHandCursor)
-        self.update_toggle_style()
         self.toggle_btn.clicked.connect(lambda x=None: self.toggle_mod())
         layout.addWidget(self.toggle_btn)
         
         self.del_btn = QPushButton("🗑️")
+        self.del_btn.setObjectName("ModDelBtn")
         self.del_btn.setFixedSize(30, 30)
         self.del_btn.setCursor(Qt.PointingHandCursor)
         self.del_btn.setToolTip("Delete Mod" if self.lang == "en" else "Modu Sil")
-        self.del_btn.setStyleSheet("""
-            QPushButton {
+        self.del_btn.clicked.connect(lambda x=None: self.delete_mod())
+        layout.addWidget(self.del_btn)
+
+        self.setStyleSheet("""
+            #ModTypeBox {
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+            }
+            #ModTypeLbl {
+                font-size: 10px;
+                font-weight: 700;
+                color: #94A3B8;
+                background: transparent;
+            }
+            #ModNameLbl {
+                font-size: 13px;
+                font-weight: bold;
+                color: #F8FAFC;
+                background: transparent;
+            }
+            #ModSubLbl {
+                font-size: 11px;
+                color: #94A3B8;
+                background: transparent;
+            }
+            #ModDelBtn {
                 background-color: #222228;
                 color: #EF4444;
                 border: 1px solid #18181C;
@@ -224,14 +250,13 @@ class ModItemWidget(QWidget):
                 font-size: 13px;
                 padding: 0px;
             }
-            QPushButton:hover {
+            QPushButton#ModDelBtn:hover {
                 background-color: #7F1D1D;
                 color: #FCA5A5;
                 border-color: #DC2626;
             }
         """)
-        self.del_btn.clicked.connect(lambda x=None: self.delete_mod())
-        layout.addWidget(self.del_btn)
+        self.update_toggle_style()
 
     def sizeHint(self):
         from PySide6.QtCore import QSize
@@ -248,21 +273,13 @@ class ModItemWidget(QWidget):
             self.toggle_btn.setToolTip("Enable Mod" if self.lang == "en" else "Modu Etkinleştir")
             if off_style:
                 self.toggle_btn.setStyleSheet(off_style)
-            self.name_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #64748B; background: transparent;")
-            if hasattr(self, "sub_lbl"):
-                self.sub_lbl.setStyleSheet("font-size: 11px; color: #475569; background: transparent;")
-            if hasattr(self, "icon_box"):
-                self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 6px;")
+            self.name_lbl.setStyleSheet("color: #64748B;")
         else:
             self.toggle_btn.setText("ON" if self.lang == "en" else "AÇIK")
             self.toggle_btn.setToolTip("Disable Mod" if self.lang == "en" else "Modu Devre Dışı Bırak")
             if on_style:
                 self.toggle_btn.setStyleSheet(on_style)
-            self.name_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #F8FAFC; background: transparent;")
-            if hasattr(self, "sub_lbl"):
-                self.sub_lbl.setStyleSheet("font-size: 11px; color: #94A3B8; background: transparent;")
-            if hasattr(self, "icon_box"):
-                self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;")
+            self.name_lbl.setStyleSheet("color: #F8FAFC;")
 
     def set_language(self, lang="tr"):
         self.lang = lang
@@ -921,7 +938,7 @@ class InstalledModsPanel(QWidget):
     def _load_mod_batch(self, gen, initial=False):
         if getattr(self, "_mod_load_gen", 0) != gen:
             return
-        batch_size = 20 if initial else 30
+        batch_size = 15
         end_idx = min(self._pending_idx + batch_size, len(self._pending_mods))
         query = self.mod_search_input.text().strip().lower() if hasattr(self, "mod_search_input") else ""
         
@@ -951,7 +968,7 @@ class InstalledModsPanel(QWidget):
         self._update_mod_count_label(current_count, total)
         
         if self._pending_idx < total:
-            QTimer.singleShot(8, lambda: self._load_mod_batch(gen))
+            QTimer.singleShot(16, lambda: self._load_mod_batch(gen))
 
     def refresh_worlds(self):
         import datetime
@@ -1448,7 +1465,7 @@ class NavBar(QFrame):
         layout.addWidget(self.user_card)
         
         self.game_selector = QComboBox()
-        self.game_selector.addItems(["Minecraft: Java Edition", "Minecraft for Windows", "Minecraft Dungeons"])
+        self.game_selector.addItems(["Minecraft: Java Edition", "Minecraft for Windows"])
         self.game_selector.setStyleSheet("""
             QComboBox {
                 background-color: #141416;
@@ -1473,7 +1490,6 @@ class NavBar(QFrame):
             "mods": "Modlar",
             "shaders": "Shaderlar",
             "bedrock_home": "Oyna (Bedrock)",
-            "dungeons_home": "Oyna (Dungeons)",
             "server": "Sunucum"
         }
         
@@ -1504,7 +1520,6 @@ class NavBar(QFrame):
                 "mods": "Mods",
                 "shaders": "Shaders",
                 "bedrock_home": "Play (Bedrock)",
-                "dungeons_home": "Play (Dungeons)",
                 "server": "My Server",
                 "settings": "⚙️ Settings",
             }
@@ -1515,7 +1530,6 @@ class NavBar(QFrame):
                 "mods": "Modlar",
                 "shaders": "Shaderlar",
                 "bedrock_home": "Oyna (Bedrock)",
-                "dungeons_home": "Oyna (Dungeons)",
                 "server": "Sunucum",
                 "settings": "⚙️ Ayarlar",
             }
@@ -1539,9 +1553,6 @@ class NavBar(QFrame):
         elif game_name == "Minecraft for Windows":
             self.btns["bedrock_home"].show()
             self.on_nav_click("bedrock_home", play_sound=False)
-        elif game_name == "Minecraft Dungeons":
-            self.btns["dungeons_home"].show()
-            self.on_nav_click("dungeons_home", play_sound=False)
             
         self.game_changed.emit(game_name)
 

@@ -53,7 +53,7 @@ class MinecraftServerThread(QThread):
                         f.write(content)
             except Exception:
                 pass
-            cmd = [run_bat, "nogui"]
+            cmd = ["cmd.exe", "/c", run_bat, "nogui"]
         else:
             cmd = [
                 java_exe,

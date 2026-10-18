@@ -1002,15 +1002,16 @@ async def legacy_restore_world_backup(params: RestoreLegacyWorldBackupInput) -> 
         safety_backup = f"pre_restore_{safe_world}_{ts}.zip"
         _zip_directory(world_dir, os.path.join(backups_dir, safety_backup))
 
-    os.makedirs(world_dir, exist_ok=True)
-    base_prefix = world_dir + os.sep
+    real_world_dir = os.path.realpath(world_dir)
+    os.makedirs(real_world_dir, exist_ok=True)
+    base_prefix = real_world_dir + os.sep
     extracted = 0
     with zipfile.ZipFile(zip_path, "r") as zf:
         for member in zf.infolist():
-            member_path = os.path.realpath(os.path.join(world_dir, member.filename))
-            if not (member_path.startswith(base_prefix) or member_path == world_dir):
+            member_path = os.path.realpath(os.path.join(real_world_dir, member.filename))
+            if not (member_path.startswith(base_prefix) or member_path == real_world_dir):
                 continue
-            zf.extract(member, world_dir)
+            zf.extract(member, real_world_dir)
             extracted += 1
 
     return json.dumps(

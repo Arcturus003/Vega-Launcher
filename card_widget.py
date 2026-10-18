@@ -318,18 +318,6 @@ class CardWidget(QFrame):
                     border: none;
                 }
             """
-        elif getattr(self, "is_hovered", False):
-            base = """
-                #ModpackCard {
-                    background-color: #212128;
-                    border: 1px solid #3C3C48;
-                    border-radius: 4px;
-                }
-                QLabel {
-                    background: transparent;
-                    border: none;
-                }
-            """
         else:
             base = """
                 #ModpackCard {
@@ -388,7 +376,6 @@ class CardWidget(QFrame):
 
     def enterEvent(self, event):
         self.is_hovered = True
-        self._update_style()
         try:
             super().enterEvent(event)
         except Exception:
@@ -396,7 +383,6 @@ class CardWidget(QFrame):
 
     def leaveEvent(self, event):
         self.is_hovered = False
-        self._update_style()
         try:
             super().leaveEvent(event)
         except Exception:

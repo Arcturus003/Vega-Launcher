@@ -360,6 +360,11 @@ class TestCustomizationSystem(unittest.TestCase):
             self.assertEqual(launcher.nav_bar._active_theme, "sculk_dark")
             self.assertEqual(launcher.installed_mods_panel._active_theme, "sculk_dark")
 
+            # Particles should remain active across all tabs (not just home)
+            for tab_key in ["packs", "mods", "shaders", "server", "settings", "home"]:
+                launcher.switch_tab(tab_key)
+                self.assertTrue(launcher.particle_overlay.timer.isActive(), f"Particles must remain active on tab: {tab_key}")
+
             launcher.close()
 
     def test_authentic_minecraft_particle_presets(self):

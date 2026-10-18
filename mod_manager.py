@@ -25,7 +25,10 @@ def detect_profile_loader(pdata: Optional[dict]) -> Optional[str]:
         return str(pdata.get("loader")).lower()
     from runtime_provisioner import RuntimeProvisioner
     spec = RuntimeProvisioner.detect_client_runtime(pdata)
-    return spec.loader if spec.loader != "vanilla" else None
+    ldr = spec.loader if spec.loader != "vanilla" else None
+    if ldr:
+        pdata["loader"] = ldr
+    return ldr
 
 
 def detect_profile_game_version(pdata: Optional[dict]) -> Optional[str]:

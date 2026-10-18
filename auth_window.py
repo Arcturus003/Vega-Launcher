@@ -5,7 +5,6 @@ import ctypes
 from ctypes import wintypes
 from urllib.parse import urlparse, parse_qs
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QMessageBox, QLabel
-from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtCore import QUrl, Qt, QThread, Signal
 import minecraft_launcher_lib
 
@@ -86,6 +85,7 @@ class MicrosoftLoginDialog(QDialog):
         self.loading_label.hide()
         layout.addWidget(self.loading_label)
 
+        from PySide6.QtWebEngineWidgets import QWebEngineView
         self.browser = QWebEngineView()
         layout.addWidget(self.browser)
         
