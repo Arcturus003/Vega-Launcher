@@ -8,6 +8,8 @@ Dahili Modrinth desteği, otomatik Java kurulumu ve profil izolasyonuna sahip h�
 
 [English](README.md) • Türkçe
 
+![Vega Launcher Arayüzü](assets/screenshots/launcher_preview.png)
+
 ## Özellikler
 
 - **Dahili Modrinth Tarayıcısı**: Modpaketleri, modları ve shaderları tarayıcı açmadan doğrudan arayıp kurun.
