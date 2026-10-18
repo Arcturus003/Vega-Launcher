@@ -8,7 +8,7 @@ A fast, clean Minecraft launcher with built-in Modrinth support, automatic Java 
 
 English • [Türkçe](README_TR.md)
 
-![Vega Launcher Interface](assets/screenshots/launcher_preview.png)
+![Vega Launcher Preview](assets/social_preview.png)
 
 ## Features
 

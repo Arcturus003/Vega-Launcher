@@ -8,7 +8,7 @@ Dahili Modrinth desteği, otomatik Java kurulumu ve profil izolasyonuna sahip h�
 
 [English](README.md) • Türkçe
 
-![Vega Launcher Arayüzü](assets/screenshots/launcher_preview.png)
+![Vega Launcher Önizleme](assets/social_preview.png)
 
 ## Özellikler
 
