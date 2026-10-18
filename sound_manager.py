@@ -23,6 +23,34 @@ def _ensure_dir(path: str):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
 
 
+def get_sounds_dir() -> str:
+    """
+    Robust path resolver for sound assets across dev, PyInstaller, and Inno Setup environments.
+    Checks candidate directories in order:
+    1. Executable directory (production installed root: <install_dir>/assets/sounds)
+    2. PyInstaller temporary extraction directory (sys._MEIPASS/assets/sounds)
+    3. PyInstaller _internal directory (<install_dir>/_internal/assets/sounds)
+    4. Module directory (development / python main.py: <repo>/assets/sounds)
+    """
+    candidates = []
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        candidates.append(os.path.join(exe_dir, "assets", "sounds"))
+        candidates.append(os.path.join(exe_dir, "_internal", "assets", "sounds"))
+    meipass = getattr(sys, "_MEIPASS", "")
+    if meipass:
+        candidates.append(os.path.join(meipass, "assets", "sounds"))
+    mod_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(os.path.join(mod_dir, "assets", "sounds"))
+    parent_dir = os.path.dirname(mod_dir)
+    candidates.append(os.path.join(parent_dir, "assets", "sounds"))
+
+    for c in candidates:
+        if os.path.isdir(c):
+            return c
+    return candidates[0]
+
+
 def extract_authentic_minecraft_sounds(dest_dir: str) -> bool:
     """
     Extracts authentic original Minecraft sound effects from local .minecraft/assets/objects
@@ -31,7 +59,7 @@ def extract_authentic_minecraft_sounds(dest_dir: str) -> bool:
     """
     appdata = os.environ.get("APPDATA", "")
     objs = os.path.join(appdata, ".minecraft", "assets", "objects")
-    bundled_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "sounds")
+    bundled_dir = get_sounds_dir()
 
     mappings = {
         "click.wav": os.path.join(objs, "ec", "ec4f4d122ab7c5d44e48419de0e3de1b0922514d"),
@@ -404,8 +432,7 @@ class SoundManager(QObject):
         if sounds_dir:
             self.sounds_dir = sounds_dir
         else:
-            base = os.path.dirname(os.path.abspath(__file__))
-            self.sounds_dir = os.path.join(base, "assets", "sounds")
+            self.sounds_dir = get_sounds_dir()
 
         self._enabled = True
         self._volume = 70  # 0 to 100

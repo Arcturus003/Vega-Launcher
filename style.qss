@@ -36,14 +36,14 @@ QLabel {
 #NavButton {
     background-color: transparent;
     border: none;
-    padding: 9px 14px;
+    padding: 8px 12px;
     font-family: "Minecraft Five", "Segoe UI", sans-serif;
     font-size: 13px;
     font-weight: 700;
     text-align: left;
     color: #A1A1AA;
     border-radius: 4px;
-    margin: 3px 8px;
+    margin: 4px 8px;
 }
 
 #NavButton:hover {
@@ -64,7 +64,7 @@ QLabel {
 #ActionBar {
     background-color: #141416;
     border-top: 1px solid #242428;
-    padding: 6px 14px;
+    padding: 8px 16px;
 }
 
 #PlayButton {
@@ -113,14 +113,18 @@ QListWidget {
 QListWidget::item {
     background-color: #1A1A1E;
     border-radius: 6px;
-    margin-bottom: 6px;
-    padding: 6px;
+    margin-bottom: 8px;
+    padding: 8px;
     border: 1px solid #282830;
+    border-top: 1px solid #34343E;
+    border-bottom: 2px solid #141416;
 }
 
 QListWidget::item:hover {
     background-color: #222228;
     border: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    border-bottom: 2px solid #141416;
 }
 
 QListWidget::item:selected {
@@ -135,6 +139,8 @@ QListWidget#ProfileList::item {
 #ModpackCard {
     background-color: #1A1A1E;
     border: 1px solid #282830;
+    border-top: 1px solid #34343E;
+    border-bottom: 2px solid #141416;
     border-radius: 6px;
 }
 
@@ -299,8 +305,10 @@ QMenu {
     background-color: #18181B;
     color: #F8FAFC;
     border: 1px solid #282830;
+    border-top: 1px solid #34343E;
+    border-bottom: 2px solid #141416;
     border-radius: 6px;
-    padding: 6px;
+    padding: 4px;
 }
 
 QMenu::item {
@@ -324,7 +332,7 @@ QTabWidget::pane {
 QTabBar::tab {
     background: #18181B;
     color: #A1A1AA;
-    padding: 9px 18px;
+    padding: 8px 16px;
     margin-right: 4px;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
@@ -350,7 +358,7 @@ QTabBar::tab:selected {
     border-radius: 4px;
     font-size: 12px;
     font-weight: 600;
-    padding: 4px 10px;
+    padding: 4px 12px;
 }
 
 #SubTabButton:hover {
@@ -369,13 +377,27 @@ QTabBar::tab:selected {
 QFrame#SettingsCard {
     background-color: #1A1A1E;
     border: 1px solid #282830;
-    border-radius: 8px;
+    border-top: 1px solid #34343E;
+    border-bottom: 2px solid #141416;
+    border-radius: 6px;
 }
 
 QLabel#SettingsCardHeader {
-    font-size: 15px;
-    font-weight: 800;
+    font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
     color: #C084FC;
+    letter-spacing: 0.8px;
+    background: transparent;
+    border: none;
+}
+
+/* --- De-emphasized Form Field Labels --- */
+QLabel#FormLabel, QLabel.FormLabel {
+    color: #94A3B8;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     background: transparent;
     border: none;
 }
@@ -389,7 +411,7 @@ QPushButton#PrimaryAccentButton {
     border-left: 1px solid #8B5CF6;
     border-right: 1px solid #6D28D9;
     border-radius: 4px;
-    padding: 6px 14px;
+    padding: 8px 16px;
     font-size: 12px;
     font-weight: bold;
 }
@@ -401,7 +423,49 @@ QPushButton#PrimaryAccentButton:hover {
 
 QPushButton#PrimaryAccentButton:pressed {
     background-color: #6D28D9;
-    padding-top: 7px;
+    padding-top: 9px;
+    padding-bottom: 7px;
+}
+
+/* --- Secondary Outline Action Buttons --- */
+QPushButton#SecondaryOutlineButton {
+    background-color: #222228;
+    color: #CBD5E1;
+    font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 8px 14px;
+    border: 1px solid #282830;
+    border-top: 1.5px solid #3E3E48;
+    border-bottom: 2.5px solid #18181C;
+}
+
+QPushButton#SecondaryOutlineButton:hover {
+    background-color: #2A2A32;
+    border-top: 1.5px solid #4C4C58;
+    color: #FFFFFF;
+}
+
+QPushButton#DestructiveOutlineButton {
+    background-color: #222228;
+    color: #CBD5E1;
+    font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 8px 14px;
+    border: 1px solid #282830;
+    border-top: 1.5px solid #3E3E48;
+    border-bottom: 2.5px solid #18181C;
+}
+
+QPushButton#DestructiveOutlineButton:hover {
+    background-color: rgba(239, 68, 68, 0.12);
+    border: 1px solid #EF4444;
+    border-top: 1.5px solid #F87171;
+    border-bottom: 2.5px solid #7F1D1D;
+    color: #FCA5A5;
 }
 
 /* --- Server Side Tabs --- */
@@ -410,17 +474,17 @@ QPushButton#PrimaryAccentButton:pressed {
     border: none;
     outline: none;
     padding: 0px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
 }
 
 #ServerSideTabs::item {
     background-color: transparent;
     border: none;
-    padding: 10px 15px;
+    padding: 8px 16px;
     color: #A1A1AA;
     border-radius: 4px;
-    margin: 3px 0px;
+    margin: 4px 0px;
 }
 
 #ServerSideTabs::item:hover {

@@ -14,6 +14,8 @@ nuitka-crash-report.xml
 *.rar
 VegaLauncher_Portable.zip
 VegaLauncher_SourceCode.zip
+sandbox_test/
+
 
 # Project Data
 profiles/

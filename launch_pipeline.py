@@ -123,6 +123,13 @@ class GameLaunchPipeline:
             extra_jvm = settings.get("jvm_args", "")
             java_path = (settings.get("java_path", "") or "").strip() or None
 
+            if not java_path or not os.path.exists(java_path):
+                try:
+                    from runtime_provisioner import DEFAULT_PROVISIONER
+                    java_path = DEFAULT_PROVISIONER.ensure_java_runtime(version, self.mc_dir)
+                except Exception:
+                    java_path = None
+
             options = self.build_launch_options(
                 auth_session=auth_session,
                 game_directory=game_dir,

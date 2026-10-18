@@ -15,6 +15,7 @@ Features:
 """
 
 import os
+import sys
 import math
 import random
 from typing import List, Dict, Any, Optional
@@ -22,8 +23,37 @@ from PySide6.QtCore import Qt, QTimer, QRectF, QEvent
 from PySide6.QtGui import QPainter, QColor, QBrush, QPixmap, QPaintEvent
 from PySide6.QtWidgets import QWidget
 
+
+def get_particles_dir() -> str:
+    """
+    Robust path resolver for particle sprite assets across dev, PyInstaller, and Inno Setup environments.
+    Checks candidate directories in order:
+    1. Executable directory (production installed root: <install_dir>/assets/particles)
+    2. PyInstaller temporary extraction directory (sys._MEIPASS/assets/particles)
+    3. PyInstaller _internal directory (<install_dir>/_internal/assets/particles)
+    4. Module directory (development / python main.py: <repo>/assets/particles)
+    """
+    candidates = []
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        candidates.append(os.path.join(exe_dir, "assets", "particles"))
+        candidates.append(os.path.join(exe_dir, "_internal", "assets", "particles"))
+    meipass = getattr(sys, "_MEIPASS", "")
+    if meipass:
+        candidates.append(os.path.join(meipass, "assets", "particles"))
+    mod_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(os.path.join(mod_dir, "assets", "particles"))
+    parent_dir = os.path.dirname(mod_dir)
+    candidates.append(os.path.join(parent_dir, "assets", "particles"))
+
+    for c in candidates:
+        if os.path.isdir(c):
+            return c
+    return candidates[0]
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PARTICLES_DIR = os.path.join(BASE_DIR, "assets", "particles")
+PARTICLES_DIR = get_particles_dir()
 
 
 class AmbientParticle:
@@ -142,7 +172,9 @@ class ParticleOverlay(QWidget):
 
     def _load_all_sprites(self):
         """Loads authentic particle animation frame sequences from assets/particles/."""
+        global PARTICLES_DIR
         self._raw_sequences.clear()
+        PARTICLES_DIR = get_particles_dir()
         if not os.path.isdir(PARTICLES_DIR):
             return
 
@@ -350,6 +382,7 @@ class ParticleOverlay(QWidget):
         self._is_paused = False
         if self._enabled and not self.timer.isActive():
             self.timer.start()
+        self.update()
 
     def showEvent(self, event):
         super().showEvent(event)

@@ -4,6 +4,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import urllib.parse
 import urllib.request
@@ -12,6 +13,62 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from PySide6.QtCore import QThread, Signal
+
+
+def get_java_major_version(java_exe: str) -> Optional[int]:
+    """Inspects a java executable via -version and extracts the major version (e.g. 8, 17, 21)."""
+    if not java_exe or not os.path.isfile(java_exe):
+        return None
+    try:
+        proc = subprocess.run(
+            [java_exe, "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        output = proc.stdout or ""
+        match = re.search(r'version ["\'](?:1\.)?(\d+)', output)
+        if match:
+            return int(match.group(1))
+    except Exception:
+        pass
+    return None
+
+
+def get_required_jvm_info(mc_version: Optional[str], mc_dir: Optional[str] = None) -> tuple[str, int]:
+    """
+    Determines the required Mojang JVM runtime component name and Java major version.
+    Returns (component_name, major_version), e.g. ('java-runtime-gamma', 17).
+    """
+    base_ver = RuntimeProvisioner.extract_base_version(mc_version) or "1.20.1"
+    clean_dir = mc_dir or os.path.join(os.getenv("APPDATA", ""), ".minecraft")
+
+    try:
+        import minecraft_launcher_lib.runtime as rt
+        info = rt.get_version_runtime_information(base_ver, clean_dir)
+        if info and "name" in info:
+            return str(info["name"]), int(info.get("javaMajorVersion", 17))
+    except Exception:
+        pass
+
+    # Deterministic fallback according to Mojang specification
+    try:
+        parts = [int(p) for p in re.findall(r"\d+", base_ver)]
+        if len(parts) >= 2 and parts[0] == 1:
+            minor = parts[1]
+            patch = parts[2] if len(parts) > 2 else 0
+            if minor >= 21 or (minor == 20 and patch >= 5):
+                return "java-runtime-delta", 21
+            if minor >= 18:
+                return "java-runtime-gamma", 17
+            if minor == 17:
+                return "java-runtime-beta", 16
+    except Exception:
+        pass
+
+    return "jre-legacy", 8
 
 
 @dataclass(frozen=True)
@@ -33,30 +90,51 @@ class DefaultClientInstallerBackend:
         import minecraft_launcher_lib
         minecraft_launcher_lib.install.install_minecraft_version(version_id, mc_dir, callback=callback)
 
-    def install_fabric(self, mc_version: str, mc_dir: str, loader_version: Optional[str] = None, callback: Optional[dict] = None) -> str:
+    def install_fabric(
+        self,
+        mc_version: str,
+        mc_dir: str,
+        loader_version: Optional[str] = None,
+        callback: Optional[dict] = None,
+        java: Optional[str] = None,
+    ) -> str:
         import minecraft_launcher_lib
         if not loader_version:
             loader_version = minecraft_launcher_lib.fabric.get_latest_loader_version()
-        minecraft_launcher_lib.fabric.install_fabric(mc_version, mc_dir, loader_version=loader_version, callback=callback)
+        minecraft_launcher_lib.fabric.install_fabric(mc_version, mc_dir, loader_version=loader_version, callback=callback, java=java)
         return f"fabric-loader-{loader_version}-{mc_version}"
 
-    def install_quilt(self, mc_version: str, mc_dir: str, loader_version: Optional[str] = None, callback: Optional[dict] = None) -> str:
+    def install_quilt(
+        self,
+        mc_version: str,
+        mc_dir: str,
+        loader_version: Optional[str] = None,
+        callback: Optional[dict] = None,
+        java: Optional[str] = None,
+    ) -> str:
         import minecraft_launcher_lib
         if loader_version:
-            minecraft_launcher_lib.quilt.install_quilt(mc_version, mc_dir, loader_version=loader_version, callback=callback)
+            minecraft_launcher_lib.quilt.install_quilt(mc_version, mc_dir, loader_version=loader_version, callback=callback, java=java)
             return f"quilt-loader-{loader_version}-{mc_version}"
         else:
-            minecraft_launcher_lib.quilt.install_quilt(mc_version, mc_dir, callback=callback)
+            minecraft_launcher_lib.quilt.install_quilt(mc_version, mc_dir, callback=callback, java=java)
             return f"quilt-loader-{mc_version}"
 
-    def install_forge(self, mc_version: str, mc_dir: str, forge_version: Optional[str] = None, callback: Optional[dict] = None) -> str:
+    def install_forge(
+        self,
+        mc_version: str,
+        mc_dir: str,
+        forge_version: Optional[str] = None,
+        callback: Optional[dict] = None,
+        java: Optional[str] = None,
+    ) -> str:
         import minecraft_launcher_lib
         if not forge_version:
             forge_version = minecraft_launcher_lib.forge.find_forge_version(mc_version)
             if not forge_version:
                 raise Exception(f"Forge {mc_version} için bulunamadı.")
         target_version_arg = forge_version if f"{mc_version}-" in str(forge_version) else f"{mc_version}-{forge_version}"
-        minecraft_launcher_lib.forge.install_forge_version(target_version_arg, mc_dir, callback=callback)
+        minecraft_launcher_lib.forge.install_forge_version(target_version_arg, mc_dir, callback=callback, java=java)
 
         # Forge sürüm adını klasör mtime veya doğrudan ID ile doğrula
         versions_dir = os.path.join(mc_dir, "versions")
@@ -72,14 +150,21 @@ class DefaultClientInstallerBackend:
                 return forge_dirs[0][0]
         return f"{mc_version}-forge-{forge_version}"
 
-    def install_neoforge(self, mc_version: str, mc_dir: str, loader_version: Optional[str] = None, callback: Optional[dict] = None) -> str:
+    def install_neoforge(
+        self,
+        mc_version: str,
+        mc_dir: str,
+        loader_version: Optional[str] = None,
+        callback: Optional[dict] = None,
+        java: Optional[str] = None,
+    ) -> str:
         import minecraft_launcher_lib.mod_loader
         neo = minecraft_launcher_lib.mod_loader.get_mod_loader("neoforge")
         if not loader_version:
             loader_version = neo.get_latest_loader_version(mc_version)
             if not loader_version:
                 raise Exception(f"NeoForge {mc_version} için bulunamadı veya desteklenmiyor.")
-        installed_ver = neo.install(mc_version, loader_version, mc_dir, callback=callback)
+        installed_ver = neo.install(mc_version, loader_version, mc_dir, callback=callback, java=java)
         if not installed_ver:
             installed_ver = neo.get_installed_version(mc_version, loader_version)
         return installed_ver if installed_ver else f"neoforge-{loader_version}-{mc_version}"
@@ -211,6 +296,115 @@ class RuntimeProvisioner:
             is_server=True,
         )
 
+    def find_system_java(self, min_major: int = 17, preferred: Optional[str] = None) -> Optional[str]:
+        """Locates an existing Java runtime satisfying min_major on the system."""
+        candidates = []
+        if preferred and os.path.isfile(preferred):
+            candidates.append(preferred)
+
+        which_java = shutil.which("java")
+        if which_java:
+            candidates.append(which_java)
+
+        jh = os.getenv("JAVA_HOME")
+        if jh:
+            jh_bin = os.path.join(jh, "bin", "java.exe" if os.name == "nt" else "java")
+            if os.path.isfile(jh_bin):
+                candidates.append(jh_bin)
+
+        if os.name == "nt":
+            globs = [
+                r"C:\Program Files\Microsoft\jdk-*\bin\java.exe",
+                r"C:\Program Files\Eclipse Adoptium\jdk-*\bin\java.exe",
+                r"C:\Program Files\Java\jdk-*\bin\java.exe",
+                r"C:\Program Files\Amazon Corretto\jdk-*\bin\java.exe",
+                r"C:\Program Files\Zulu\*\bin\java.exe",
+                r"C:\Program Files\BellSoft\LibericaJDK-*\bin\java.exe",
+                r"C:\Program Files (x86)\Java\jre*\bin\java.exe",
+            ]
+            for pat in globs:
+                matches = glob.glob(pat)
+                if matches:
+                    candidates.extend(reversed(sorted(matches)))
+
+        seen = set()
+        for cand in candidates:
+            norm = os.path.normcase(os.path.abspath(cand))
+            if norm in seen:
+                continue
+            seen.add(norm)
+            major = get_java_major_version(cand)
+            if major is not None and major >= min_major:
+                return cand
+
+        return None
+
+    def ensure_java_runtime(
+        self,
+        mc_version: str,
+        mc_dir: Optional[str] = None,
+        callback: Optional[dict] = None,
+        on_progress: Optional[Callable[[int, int, str], None]] = None,
+        lang: str = "tr",
+        preferred_java: Optional[str] = None,
+    ) -> str:
+        """
+        Guarantees that a compatible Java runtime is present.
+        If no compatible system Java is detected (e.g. clean Windows / Sandbox),
+        Mojang's official JVM runtime is downloaded and verified in .minecraft/runtime/.
+        Returns the absolute path to java.exe.
+        """
+        import minecraft_launcher_lib.runtime as rt
+
+        target_mc_dir = mc_dir or self.mc_dir
+        component, req_major = get_required_jvm_info(mc_version, target_mc_dir)
+        en = lang == "en"
+
+        # 1. Check if Mojang runtime is already installed in target_mc_dir or default mc_dir
+        for candidate_dir in [target_mc_dir, os.path.join(os.getenv("APPDATA", ""), ".minecraft")]:
+            if candidate_dir:
+                try:
+                    mojang_exe = rt.get_executable_path(component, candidate_dir)
+                    if mojang_exe and os.path.isfile(mojang_exe):
+                        return mojang_exe
+                except Exception:
+                    pass
+
+        # 2. Check if a suitable system Java exists (satisfying req_major)
+        sys_java = self.find_system_java(min_major=req_major, preferred=preferred_java)
+        if sys_java:
+            return sys_java
+
+        # 3. Clean machine / sandbox: Automatically provision Mojang runtime
+        status_msg = (
+            f"Downloading Mojang Java {req_major} runtime..."
+            if en else
+            f"Mojang Java {req_major} çalışma ortamı indiriliyor..."
+        )
+        if on_progress:
+            on_progress(0, 100, status_msg)
+        if callback and "setStatus" in callback:
+            callback["setStatus"](status_msg)
+
+        try:
+            rt.install_jvm_runtime(component, target_mc_dir, callback=callback)
+        except Exception as dl_err:
+            raise RuntimeError(
+                f"Java {req_major} runtime could not be installed: {dl_err}\nPlease check your internet connection."
+                if en else
+                f"Java {req_major} çalışma ortamı indirilemedi: {dl_err}\nLütfen internet bağlantınızı kontrol edin."
+            ) from dl_err
+
+        mojang_exe = rt.get_executable_path(component, target_mc_dir)
+        if mojang_exe and os.path.isfile(mojang_exe):
+            return mojang_exe
+
+        raise RuntimeError(
+            f"Could not locate java executable for component {component}."
+            if en else
+            f"Java çalışma ortamı doğrulanamadı ({component})."
+        )
+
     def install_client_runtime(
         self,
         spec: RuntimeSpec,
@@ -265,22 +459,38 @@ class RuntimeProvisioner:
         if loader == "fabric":
             if on_progress:
                 on_progress(0, 100, f"Installing Fabric {mc_ver}..." if en else f"Fabric {mc_ver} kuruluyor...")
-            return self.backend.install_fabric(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb)
+            java_path = self.ensure_java_runtime(mc_ver, target_mc_dir, callback=cb, on_progress=on_progress, lang=lang)
+            try:
+                return self.backend.install_fabric(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb, java=java_path)
+            except TypeError:
+                return self.backend.install_fabric(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb)
 
         if loader == "quilt":
             if on_progress:
                 on_progress(0, 100, f"Installing Quilt {mc_ver}..." if en else f"Quilt {mc_ver} kuruluyor...")
-            return self.backend.install_quilt(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb)
+            java_path = self.ensure_java_runtime(mc_ver, target_mc_dir, callback=cb, on_progress=on_progress, lang=lang)
+            try:
+                return self.backend.install_quilt(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb, java=java_path)
+            except TypeError:
+                return self.backend.install_quilt(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb)
 
         if loader == "forge":
             if on_progress:
                 on_progress(0, 100, f"Installing Forge {mc_ver}..." if en else f"Forge {mc_ver} kuruluyor...")
-            return self.backend.install_forge(mc_ver, target_mc_dir, forge_version=spec.loader_version, callback=cb)
+            java_path = self.ensure_java_runtime(mc_ver, target_mc_dir, callback=cb, on_progress=on_progress, lang=lang)
+            try:
+                return self.backend.install_forge(mc_ver, target_mc_dir, forge_version=spec.loader_version, callback=cb, java=java_path)
+            except TypeError:
+                return self.backend.install_forge(mc_ver, target_mc_dir, forge_version=spec.loader_version, callback=cb)
 
         if loader == "neoforge":
             if on_progress:
                 on_progress(0, 100, f"Installing NeoForge {mc_ver}..." if en else f"NeoForge {mc_ver} kuruluyor...")
-            return self.backend.install_neoforge(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb)
+            java_path = self.ensure_java_runtime(mc_ver, target_mc_dir, callback=cb, on_progress=on_progress, lang=lang)
+            try:
+                return self.backend.install_neoforge(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb, java=java_path)
+            except TypeError:
+                return self.backend.install_neoforge(mc_ver, target_mc_dir, loader_version=spec.loader_version, callback=cb)
 
         # Fallback to vanilla
         self.backend.install_vanilla(mc_ver, target_mc_dir, callback=cb)
@@ -386,22 +596,10 @@ class RuntimeProvisioner:
             _log(f"[INFO] Installing {software}, please wait..." if en else f"[BİLGİ] {software} kuruluyor, lütfen bekleyin...")
             installer_path = download_path
             try:
-                java_exe = "java"
-                if os.name == "nt":
-                    matches = (
-                        glob.glob(r"C:\Program Files\Microsoft\jdk-*\bin\java.exe")
-                        + glob.glob(r"C:\Program Files\Eclipse Adoptium\jdk-*\bin\java.exe")
-                        + glob.glob(r"C:\Program Files\Java\jdk-*\bin\java.exe")
-                    )
-                    if matches:
-                        for candidate in reversed(sorted(matches)):
-                            if os.path.exists(candidate):
-                                java_exe = candidate
-                                break
-                    if java_exe == "java" and "JAVA_HOME" in os.environ:
-                        jh = os.path.join(os.environ["JAVA_HOME"], "bin", "java.exe")
-                        if os.path.exists(jh):
-                            java_exe = jh
+                try:
+                    java_exe = self.ensure_java_runtime(version, self.mc_dir, lang=lang)
+                except Exception:
+                    java_exe = self.find_system_java(min_major=17) or "java"
 
                 process = subprocess.Popen(
                     [java_exe, "-jar", installer_path, "--installServer"],

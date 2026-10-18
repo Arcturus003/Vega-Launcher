@@ -1739,7 +1739,7 @@ class ModrinthBrowser(QWidget):
         render_chunk(0)
 
 
-class EndermanInstallModal(QDialog):
+class VegaInstallModal(QDialog):
     canceled = Signal()
 
     def __init__(self, pack_name="Modpack", parent=None):
@@ -1791,7 +1791,7 @@ class EndermanInstallModal(QDialog):
 
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
-        title_lbl = QLabel("Enderman Modpack Installer" if en else "Enderman Modpack Yükleyici")
+        title_lbl = QLabel("Vega Modpack Installer" if en else "Vega Modpack Yükleyici")
         title_lbl.setStyleSheet("font-size: 16px; font-weight: 800; color: #F8FAFC; background: transparent; border: none;")
         title_col.addWidget(title_lbl)
 
@@ -1888,6 +1888,9 @@ class EndermanInstallModal(QDialog):
             self.progress_bar.setValue(current)
             pct = int((current / total) * 100) if total > 0 else 0
             self.counter_lbl.setText(f"{current} / {total} Mods ({pct}%)" if en else f"{current} / {total} Mod (%{pct})")
+
+
+EndermanInstallModal = VegaInstallModal
 
 
 class CustomProgressOverlay(QDialog):
@@ -2286,7 +2289,7 @@ class VegaLauncher(QMainWindow):
         self.profile_page = QWidget()
         profile_layout = QVBoxLayout(self.profile_page)
         profile_layout.setContentsMargins(24, 20, 24, 16)
-        profile_layout.setSpacing(14)
+        profile_layout.setSpacing(16)
 
         # --- HERO VITRIN SHOWCASE ---
         self.hero_card = QFrame()
@@ -2301,7 +2304,7 @@ class VegaLauncher(QMainWindow):
             }
         """)
         hero_layout = QHBoxLayout(self.hero_card)
-        hero_layout.setContentsMargins(20, 16, 20, 16)
+        hero_layout.setContentsMargins(24, 16, 24, 16)
         hero_layout.setSpacing(16)
 
         self.hero_icon_box = QFrame()
@@ -2620,12 +2623,13 @@ class VegaLauncher(QMainWindow):
         
         # Ambient Particle Canvas Overlay
         self.particle_overlay = ParticleOverlay(self)
-        self.particle_overlay.set_enabled(self.settings.get("particles_enabled", False))
+        self.particle_overlay.set_enabled(self.settings.get("particles_enabled", True))
         t_key = self.settings.get("theme", "electric_amethyst")
         self.particle_overlay.set_palette(theme_manager.get_theme(t_key).get("particles", []))
         self.particle_overlay.set_preset(self.settings.get("particle_preset", "portal"))
         self.particle_overlay.set_opacity_percent(self.settings.get("particle_opacity", 50))
         self.particle_overlay.resize(self.size())
+        self.particle_overlay.raise_()
 
         # Durum çubuğu
         self.statusBar().setStyleSheet("color: #888; background: rgba(15,15,20,0.9); border-top: 1px solid #333;")
@@ -2636,6 +2640,7 @@ class VegaLauncher(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, 'particle_overlay') and self.particle_overlay:
             self.particle_overlay.resize(self.size())
+            self.particle_overlay.raise_()
 
     def changeEvent(self, event):
         super().changeEvent(event)
@@ -2661,11 +2666,11 @@ class VegaLauncher(QMainWindow):
                 QTimer.singleShot(150, self.sound_mgr.play_door_open)
 
     def _build_settings_page(self):
-        from PySide6.QtWidgets import QGridLayout, QFileDialog, QFrame
+        from PySide6.QtWidgets import QGridLayout, QFileDialog, QFrame, QLayout
         page = QWidget()
         outer_layout = QVBoxLayout(page)
         outer_layout.setContentsMargins(24, 20, 24, 20)
-        outer_layout.setSpacing(14)
+        outer_layout.setSpacing(16)
 
         self.lbl_settings_title = QLabel("UYGULAMA AYARLARI")
         self.lbl_settings_title.setStyleSheet("font-family: 'Minecraft Five', 'Segoe UI', sans-serif; font-size: 16px; font-weight: bold; color: #F8FAFC; letter-spacing: 0.5px; background: transparent;")
@@ -2686,7 +2691,9 @@ class VegaLauncher(QMainWindow):
             QFrame#SettingsCard {
                 background-color: #1A1A1E;
                 border: 1px solid #282830;
-                border-radius: 8px;
+                border-top: 1px solid #34343E;
+                border-bottom: 2px solid #141416;
+                border-radius: 6px;
             }
         """
         input_qss = """
@@ -2725,6 +2732,78 @@ class VegaLauncher(QMainWindow):
                 background-color: #18181C;
                 border-top: 3px solid #141416;
                 border-bottom: 1px solid #141416;
+                padding-top: 10px;
+                padding-bottom: 6px;
+            }
+            QPushButton#BtnAccLogin {
+                background-color: #7C3AED;
+                color: #FFFFFF;
+                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 4px;
+                padding: 7px 14px;
+                border: 1px solid #5B21B6;
+                border-top: 1.5px solid #A78BFA;
+                border-left: 1px solid #8B5CF6;
+                border-right: 1px solid #6D28D9;
+                border-bottom: 2.5px solid #4C1D95;
+            }
+            QPushButton#BtnAccLogin:hover {
+                background-color: #8B5CF6;
+                border-top: 1.5px solid #C084FC;
+            }
+            QPushButton#BtnAccLogin:pressed {
+                background-color: #6D28D9;
+                padding-top: 8px;
+                padding-bottom: 6px;
+            }
+            QPushButton#BtnAccLogout {
+                background-color: #222228;
+                color: #CBD5E1;
+                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 4px;
+                padding: 7px 14px;
+                border: 1px solid #282830;
+                border-top: 1.5px solid #3E3E48;
+                border-bottom: 2.5px solid #18181C;
+            }
+            QPushButton#BtnAccLogout:hover {
+                background-color: rgba(239, 68, 68, 0.12);
+                border: 1px solid #EF4444;
+                border-top: 1.5px solid #F87171;
+                border-bottom: 2.5px solid #7F1D1D;
+                color: #FCA5A5;
+            }
+            QPushButton#BtnAccLogout:pressed {
+                background-color: #18181C;
+                padding-top: 8px;
+                padding-bottom: 6px;
+            }
+            QPushButton#BtnCheckUpdates {
+                background-color: #7C3AED;
+                color: #FFFFFF;
+                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                font-size: 11px;
+                font-weight: bold;
+                border: 1px solid #5B21B6;
+                border-top: 1.5px solid #A78BFA;
+                border-left: 1px solid #8B5CF6;
+                border-right: 1px solid #6D28D9;
+                border-bottom: 3.5px solid #4C1D95;
+                border-radius: 4px;
+                padding: 8px 16px;
+            }
+            QPushButton#BtnCheckUpdates:hover {
+                background-color: #8B5CF6;
+                border-top: 1.5px solid #C084FC;
+            }
+            QPushButton#BtnCheckUpdates:pressed {
+                background-color: #6D28D9;
+                border-top: 2.5px solid #4C1D95;
+                border-bottom: 1px solid #A78BFA;
                 padding-top: 10px;
                 padding-bottom: 6px;
             }
@@ -2774,18 +2853,32 @@ class VegaLauncher(QMainWindow):
             card.setStyleSheet(card_themed_qss)
             lay = QVBoxLayout(card)
             lay.setContentsMargins(18, 16, 18, 16)
-            lay.setSpacing(10)
+            lay.setSpacing(14)
             hdr = QLabel(title_text)
             hdr.setObjectName("SettingsCardHeader")
-            hdr.setStyleSheet(f"font-family: 'Minecraft Five', 'Segoe UI', sans-serif; font-size: 13px; font-weight: bold; color: {t_data.get('glow', '#C084FC')}; letter-spacing: 0.5px; background: transparent; border: none;")
+            hdr.setStyleSheet(f"font-family: 'Minecraft Five', 'Segoe UI', sans-serif; font-size: 12px; font-weight: bold; color: {t_data.get('glow', '#C084FC')}; letter-spacing: 0.8px; background: transparent; border: none; margin-bottom: 2px;")
             lay.addWidget(hdr)
             return card, lay, hdr
+
+        label_style = "color: #94A3B8; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: transparent; border: none;"
+
+        def _add_field(parent_layout, label_widget, control_or_layout):
+            box = QVBoxLayout()
+            box.setSpacing(4)
+            box.setContentsMargins(0, 0, 0, 0)
+            if label_widget is not None:
+                label_widget.setStyleSheet(label_style)
+                box.addWidget(label_widget)
+            if isinstance(control_or_layout, QLayout):
+                box.addLayout(control_or_layout)
+            elif control_or_layout is not None:
+                box.addWidget(control_or_layout)
+            parent_layout.addLayout(box)
 
         # --- KART 1: Genel, Dil & Pencere Boyutu ---
         card_gen, lay_gen, self.lbl_card_gen_hdr = _make_settings_card("GENEL, DİL & PENCERE")
 
         self.lbl_lang_field = QLabel("Arayüz Dili / Language:")
-        self.lbl_lang_field.setStyleSheet("color: #CCCCCC; font-size: 13px; background: transparent;")
         self.combo_lang = QComboBox()
         self.combo_lang.addItem("Türkçe (TR)", "tr")
         self.combo_lang.addItem("English (EN)", "en")
@@ -2793,11 +2886,9 @@ class VegaLauncher(QMainWindow):
         if idx_lang >= 0:
             self.combo_lang.setCurrentIndex(idx_lang)
         self.combo_lang.currentIndexChanged.connect(self._on_settings_changed)
-        lay_gen.addWidget(self.lbl_lang_field)
-        lay_gen.addWidget(self.combo_lang)
+        _add_field(lay_gen, self.lbl_lang_field, self.combo_lang)
 
         self.lbl_winsize_field = QLabel("Açılış & Pencere Boyutu:")
-        self.lbl_winsize_field.setStyleSheet("color: #CCCCCC; font-size: 13px; background: transparent;")
         self.combo_winsize = QComboBox()
         self.combo_winsize.addItem("Otomatik (Ekrana Göre)", "auto")
         self.combo_winsize.addItem("Kompakt (1280 x 720)", "1280x720")
@@ -2809,11 +2900,9 @@ class VegaLauncher(QMainWindow):
         if idx_ws >= 0:
             self.combo_winsize.setCurrentIndex(idx_ws)
         self.combo_winsize.currentIndexChanged.connect(self._on_winsize_changed)
-        lay_gen.addWidget(self.lbl_winsize_field)
-        lay_gen.addWidget(self.combo_winsize)
+        _add_field(lay_gen, self.lbl_winsize_field, self.combo_winsize)
 
         self.lbl_onlaunch_field = QLabel("Oyun Başladığında Başlatıcı:")
-        self.lbl_onlaunch_field.setStyleSheet("color: #CCCCCC; font-size: 13px; background: transparent;")
         self.combo_onlaunch = QComboBox()
         self.combo_onlaunch.addItem("Simge Durumuna Küçült", "minimize")
         self.combo_onlaunch.addItem("Açık Tut", "keep")
@@ -2822,32 +2911,30 @@ class VegaLauncher(QMainWindow):
         if idx_ol >= 0:
             self.combo_onlaunch.setCurrentIndex(idx_ol)
         self.combo_onlaunch.currentIndexChanged.connect(self._on_settings_changed)
-        lay_gen.addWidget(self.lbl_onlaunch_field)
-        lay_gen.addWidget(self.combo_onlaunch)
+        _add_field(lay_gen, self.lbl_onlaunch_field, self.combo_onlaunch)
         lay_gen.addStretch()
 
         # --- KART 2: Oyun & Performans (Java / RAM) ---
         card_perf, lay_perf, self.lbl_card_perf_hdr = _make_settings_card("OYUN & PERFORMANS (JAVA / RAM)")
 
         self.lbl_defram_field = QLabel("Varsayılan RAM Miktarı (MB):")
-        self.lbl_defram_field.setStyleSheet("color: #CCCCCC; font-size: 13px; background: transparent;")
         ram_row = QHBoxLayout()
+        ram_row.setSpacing(8)
         self.spin_default_ram = QSpinBox()
         self.spin_default_ram.setRange(1024, 32768)
         self.spin_default_ram.setSingleStep(512)
         self.spin_default_ram.setValue(int(self.settings.get("default_ram", 4096) or 4096))
         self.spin_default_ram.valueChanged.connect(self._on_settings_changed)
-        self.btn_apply_ram_all = QPushButton("TÜM PROFİLLERE UYGULA")
+        self.btn_apply_ram_all = QPushButton("Tüm Profillere Uygula")
         self.btn_apply_ram_all.setCursor(Qt.PointingHandCursor)
         self.btn_apply_ram_all.clicked.connect(lambda checked=False: self._apply_ram_to_all_profiles())
         ram_row.addWidget(self.spin_default_ram, 1)
         ram_row.addWidget(self.btn_apply_ram_all)
-        lay_perf.addWidget(self.lbl_defram_field)
-        lay_perf.addLayout(ram_row)
+        _add_field(lay_perf, self.lbl_defram_field, ram_row)
 
         self.lbl_java_field = QLabel("Özel Java Yolu (Boş = Otomatik):")
-        self.lbl_java_field.setStyleSheet("color: #CCCCCC; font-size: 13px; background: transparent;")
         java_row = QHBoxLayout()
+        java_row.setSpacing(8)
         self.line_java_path = QLineEdit(self.settings.get("java_path", ""))
         self.line_java_path.setPlaceholderText("Otomatik (Varsayılan Java)")
         self.line_java_path.textChanged.connect(self._on_settings_changed)
@@ -2860,16 +2947,13 @@ class VegaLauncher(QMainWindow):
         java_row.addWidget(self.line_java_path, 1)
         java_row.addWidget(self.btn_browse_java)
         java_row.addWidget(self.btn_reset_java)
-        lay_perf.addWidget(self.lbl_java_field)
-        lay_perf.addLayout(java_row)
+        _add_field(lay_perf, self.lbl_java_field, java_row)
 
         self.lbl_jvm_field = QLabel("Ek JVM Argümanları:")
-        self.lbl_jvm_field.setStyleSheet("color: #CCCCCC; font-size: 13px; background: transparent;")
         self.line_jvm_args = QLineEdit(self.settings.get("jvm_args", ""))
         self.line_jvm_args.setPlaceholderText("Örn: -XX:+UseG1GC -Dsun.rmi.dgc.server.gcInterval=2147483646")
         self.line_jvm_args.textChanged.connect(self._on_settings_changed)
-        lay_perf.addWidget(self.lbl_jvm_field)
-        lay_perf.addWidget(self.line_jvm_args)
+        _add_field(lay_perf, self.lbl_jvm_field, self.line_jvm_args)
         lay_perf.addStretch()
 
         # --- KART 3: Microsoft Hesabı, Görünüm & Sesler ---
@@ -2880,52 +2964,22 @@ class VegaLauncher(QMainWindow):
         lay_acc.addWidget(self.lbl_acc_status)
 
         acc_btn_row = QHBoxLayout()
+        acc_btn_row.setSpacing(8)
         self.btn_acc_login = QPushButton("Giriş Yap / Hesap Değiştir")
+        self.btn_acc_login.setObjectName("BtnAccLogin")
         self.btn_acc_login.setCursor(Qt.PointingHandCursor)
-        self.btn_acc_login.setStyleSheet("""
-            QPushButton {
-                background-color: #3C8527;
-                color: #FFFFFF;
-                border: 1px solid #1E3F13;
-                border-top: 1.5px solid #5EB836;
-                border-bottom: 2.5px solid #1E3F13;
-                border-radius: 4px;
-                padding: 7px 14px;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                background-color: #46992E;
-                border-top: 1.5px solid #6AC742;
-            }
-        """)
         self.btn_acc_login.clicked.connect(lambda checked=False: self._settings_login_microsoft())
+
         self.btn_acc_logout = QPushButton("Oturumu Kapat")
+        self.btn_acc_logout.setObjectName("BtnAccLogout")
         self.btn_acc_logout.setCursor(Qt.PointingHandCursor)
-        self.btn_acc_logout.setStyleSheet("""
-            QPushButton {
-                background-color: #C0392B;
-                color: #FFFFFF;
-                border: 1px solid #78281F;
-                border-top: 1.5px solid #E74C3C;
-                border-bottom: 2.5px solid #78281F;
-                border-radius: 4px;
-                padding: 7px 14px;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                background-color: #D32F2F;
-            }
-        """)
         self.btn_acc_logout.clicked.connect(lambda checked=False: self._settings_logout_microsoft())
-        acc_btn_row.addWidget(self.btn_acc_login)
+        acc_btn_row.addWidget(self.btn_acc_login, 1)
         acc_btn_row.addWidget(self.btn_acc_logout)
-        lay_acc.addLayout(acc_btn_row)
+        _add_field(lay_acc, None, acc_btn_row)
 
         # Theme Selector
         self.lbl_theme_field = QLabel("Arayüz Teması / Vurgu:")
-        self.lbl_theme_field.setStyleSheet("color: #CCCCCC; font-size: 13px; margin-top: 4px; background: transparent;")
         self.combo_theme = QComboBox()
         self.combo_theme.blockSignals(True)
         curr_lang = self.settings.get("language", "tr")
@@ -2937,8 +2991,7 @@ class VegaLauncher(QMainWindow):
             self.combo_theme.setCurrentIndex(idx_t)
         self.combo_theme.blockSignals(False)
         self.combo_theme.currentIndexChanged.connect(self._on_theme_changed)
-        lay_acc.addWidget(self.lbl_theme_field)
-        lay_acc.addWidget(self.combo_theme)
+        _add_field(lay_acc, self.lbl_theme_field, self.combo_theme)
 
         # Ambient Particles Toggle & Preset Selector
         self.check_particles = QCheckBox("Ortam Parçacıkları (Akıllı Performans Modu)")
@@ -2951,7 +3004,6 @@ class VegaLauncher(QMainWindow):
         part_row = QHBoxLayout()
         part_row.setSpacing(8)
         self.lbl_particle_preset = QLabel("Parçacık Efekti:")
-        self.lbl_particle_preset.setStyleSheet("color: #CCCCCC; font-size: 12px; background: transparent;")
         self.combo_particle_preset = QComboBox()
         presets_list = [
             ("portal", "Nether & Ender Portal (Varsayılan)", "Nether & Ender Portal (Default)"),
@@ -2971,12 +3023,11 @@ class VegaLauncher(QMainWindow):
         self.combo_particle_preset.currentIndexChanged.connect(self._on_particle_preset_changed)
         part_row.addWidget(self.lbl_particle_preset)
         part_row.addWidget(self.combo_particle_preset, 1)
-        lay_acc.addLayout(part_row)
+        _add_field(lay_acc, None, part_row)
 
         part_opacity_row = QHBoxLayout()
         part_opacity_row.setSpacing(8)
         self.lbl_particle_opacity = QLabel("Saydamlık Düzeyi:" if curr_lang == "tr" else "Opacity Level:")
-        self.lbl_particle_opacity.setStyleSheet("color: #CCCCCC; font-size: 12px; background: transparent;")
         t_data_initial = theme_manager.get_theme(cur_t)
         initial_glow = t_data_initial.get("glow", "#C084FC")
 
@@ -2990,7 +3041,7 @@ class VegaLauncher(QMainWindow):
         part_opacity_row.addWidget(self.lbl_particle_opacity)
         part_opacity_row.addWidget(self.slider_particle_opacity, 1)
         part_opacity_row.addWidget(self.lbl_part_opacity_val)
-        lay_acc.addLayout(part_opacity_row)
+        _add_field(lay_acc, None, part_opacity_row)
 
         # Sound Effects Toggle & Volume Slider
         self.check_sounds = QCheckBox("UI & Bildirim Ses Efektleri")
@@ -3003,7 +3054,6 @@ class VegaLauncher(QMainWindow):
         vol_row = QHBoxLayout()
         vol_row.setSpacing(8)
         self.lbl_volume_field = QLabel("Ses Düzeyi:")
-        self.lbl_volume_field.setStyleSheet("color: #CCCCCC; font-size: 12px; background: transparent;")
         self.slider_volume = QSlider(Qt.Horizontal)
         self.slider_volume.setRange(0, 100)
         self.slider_volume.setValue(int(self.settings.get("sound_volume", 70)))
@@ -3021,11 +3071,11 @@ class VegaLauncher(QMainWindow):
         vol_row.addWidget(self.slider_volume, 1)
         vol_row.addWidget(self.lbl_vol_val)
         vol_row.addWidget(self.btn_test_sound)
-        lay_acc.addLayout(vol_row)
+        _add_field(lay_acc, None, vol_row)
 
         self.lbl_bg_field = QLabel("Özel Arka Plan Görseli:")
-        self.lbl_bg_field.setStyleSheet("color: #CCCCCC; font-size: 13px; margin-top: 4px; background: transparent;")
         bg_row = QHBoxLayout()
+        bg_row.setSpacing(8)
         self.btn_choose_bg = QPushButton("Arka Plan Seç...")
         self.btn_choose_bg.setCursor(Qt.PointingHandCursor)
         self.btn_choose_bg.clicked.connect(lambda checked=False: self._choose_custom_bg())
@@ -3034,8 +3084,7 @@ class VegaLauncher(QMainWindow):
         self.btn_reset_bg.clicked.connect(lambda checked=False: self._reset_custom_bg())
         bg_row.addWidget(self.btn_choose_bg)
         bg_row.addWidget(self.btn_reset_bg)
-        lay_acc.addWidget(self.lbl_bg_field)
-        lay_acc.addLayout(bg_row)
+        _add_field(lay_acc, self.lbl_bg_field, bg_row)
         lay_acc.addStretch()
 
         # --- KART 4: Depolama & Güncelleme / Hakkında ---
@@ -3062,35 +3111,12 @@ class VegaLauncher(QMainWindow):
         lay_sys.addLayout(folder_grid)
 
         ver_row = QHBoxLayout()
+        ver_row.setSpacing(8)
         self.lbl_version_info = QLabel(f"Vega Launcher v{__version__} — by {__author__}")
-        self.lbl_version_info.setStyleSheet("color: #AAAAAA; font-size: 13px; font-weight: bold; background: transparent;")
+        self.lbl_version_info.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600; background: transparent;")
         self.btn_check_updates = QPushButton("GÜNCELLEMELERİ KONTROL ET")
+        self.btn_check_updates.setObjectName("BtnCheckUpdates")
         self.btn_check_updates.setCursor(Qt.PointingHandCursor)
-        self.btn_check_updates.setStyleSheet("""
-            QPushButton {
-                background-color: #7C3AED;
-                color: #FFFFFF;
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-                font-size: 11px;
-                font-weight: bold;
-                border: 1px solid #5B21B6;
-                border-top: 1.5px solid #A78BFA;
-                border-left: 1px solid #8B5CF6;
-                border-right: 1px solid #6D28D9;
-                border-bottom: 3.5px solid #4C1D95;
-                border-radius: 4px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #8B5CF6;
-                border-top: 1.5px solid #C084FC;
-            }
-            QPushButton:pressed {
-                border-top: 2.5px solid #4C1D95;
-                border-bottom: 1px solid #A78BFA;
-                padding-top: 10px;
-            }
-        """)
         self.btn_check_updates.clicked.connect(lambda checked=False: self._manual_check_updates())
         ver_row.addWidget(self.lbl_version_info)
         ver_row.addStretch()
@@ -3119,10 +3145,10 @@ class VegaLauncher(QMainWindow):
         lang = (getattr(self, "settings", {}) or {}).get("language", "tr")
         if acc_name:
             self.lbl_acc_status.setText(f"{'Active Account' if lang == 'en' else 'Aktif Hesap'}: {acc_name}")
-            self.lbl_acc_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #2E8B57; background: transparent;")
+            self.lbl_acc_status.setStyleSheet("font-size: 13px; font-weight: 700; color: #34D399; background: transparent;")
         else:
             self.lbl_acc_status.setText("Not Logged In (Microsoft)" if lang == "en" else "Giriş Yapılmadı (Microsoft Hesabı Yok)")
-            self.lbl_acc_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #CD5C5C; background: transparent;")
+            self.lbl_acc_status.setStyleSheet("font-size: 13px; font-weight: 600; color: #94A3B8; background: transparent;")
 
     def _on_theme_changed(self):
         if not hasattr(self, "combo_theme"):
@@ -4296,7 +4322,7 @@ oLink.Save
                 
             self.pending_modpack = (pack_name, profile_path, None, None, None, 4096)
             
-            self.install_modal = EndermanInstallModal(pack_name, self)
+            self.install_modal = VegaInstallModal(pack_name, self)
             self.install_modal.show()
             
             self.dl_thread = DownloadModpackThread(profile_path, file_path, is_local=True, lang=lang)
@@ -4354,7 +4380,7 @@ oLink.Save
             ver_id = selected_ver.get("id") if isinstance(selected_ver, dict) else None
             self.pending_modpack = (pack_name, new_path, proj_id, ver_id, None, selected_ram)
             
-            self.install_modal = EndermanInstallModal(pack_name, self)
+            self.install_modal = VegaInstallModal(pack_name, self)
             self.install_modal.show()
             
             self.dl_thread = DownloadModpackThread(
@@ -4565,7 +4591,7 @@ oLink.Save
             
         self.pending_modpack = (pdata["name"], pdata["path"], project_id, new_version_id, profile_id)
         
-        self.install_modal = EndermanInstallModal(
+        self.install_modal = VegaInstallModal(
             f"{pdata['name']} ({'Update' if en else 'Güncelleme'})",
             self
         )

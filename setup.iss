@@ -35,8 +35,8 @@ english.KeepUserDataPrompt=Uninstalling Vega Launcher.%n%nDo you want to keep yo
 Source: "build_out\main\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autodesktop}\Vega Launcher"; Filename: "{app}\main.exe"; Tasks: desktopicon
-Name: "{group}\Vega Launcher"; Filename: "{app}\main.exe"
+Name: "{autodesktop}\Vega Launcher"; Filename: "{app}\main.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\Vega Launcher"; Filename: "{app}\main.exe"; WorkingDir: "{app}"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

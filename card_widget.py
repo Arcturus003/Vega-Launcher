@@ -149,8 +149,8 @@ class CardWidget(QFrame):
         self.destroyed.connect(lambda obj=None: self.cleanup())
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(6)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
         
         # Header (Icon + Title & Author + Version Badge)
         header_layout = QHBoxLayout()
@@ -175,7 +175,7 @@ class CardWidget(QFrame):
         header_layout.addWidget(self.icon_lbl)
         
         title_box = QVBoxLayout()
-        title_box.setSpacing(1)
+        title_box.setSpacing(2)
         title_box.setAlignment(Qt.AlignVCenter)
         
         self.title = QLabel(data.get("title", "Untitled" if en else "İsimsiz"), self)
@@ -204,7 +204,7 @@ class CardWidget(QFrame):
         self.version.setWindowFlags(Qt.Widget)
         self.version.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.version.setObjectName("CardVersionBadge")
-        self.version.setStyleSheet("background: rgba(139, 92, 246, 0.2); color: #C084FC; border: 1px solid rgba(139, 92, 246, 0.35); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;")
+        self.version.setStyleSheet("background: rgba(139, 92, 246, 0.18); color: #C084FC; border: 1px solid rgba(139, 92, 246, 0.32); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;")
         self.version.setAlignment(Qt.AlignCenter)
         header_layout.addWidget(self.version)
         
@@ -225,13 +225,13 @@ class CardWidget(QFrame):
         self.desc.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.desc.setObjectName("CardSubtitle")
         self.desc.setWordWrap(True)
-        self.desc.setStyleSheet("font-size: 11px; color: #94A3B8; line-height: 1.2; background: transparent; border: none;")
+        self.desc.setStyleSheet("font-size: 11px; color: #94A3B8; line-height: 1.3; background: transparent; border: none;")
         self.desc.setMaximumHeight(28)
         layout.addWidget(self.desc)
         
         # Stats & Tags Row (Bottom)
         stats_row = QHBoxLayout()
-        stats_row.setSpacing(6)
+        stats_row.setSpacing(8)
         stats_row.setAlignment(Qt.AlignVCenter)
         
         downloads = data.get("downloads") or 0
@@ -307,7 +307,7 @@ class CardWidget(QFrame):
                 #ModpackCard {
                     background-color: #2B1D42;
                     border: 2px solid #C084FC;
-                    border-radius: 4px;
+                    border-radius: 6px;
                 }
                 #ModpackCard:hover {
                     background-color: #2B1D42;
@@ -323,11 +323,15 @@ class CardWidget(QFrame):
                 #ModpackCard {
                     background-color: #1A1A1E;
                     border: 1px solid #282830;
-                    border-radius: 4px;
+                    border-top: 1px solid #34343E;
+                    border-bottom: 2px solid #141416;
+                    border-radius: 6px;
                 }
                 #ModpackCard:hover {
                     background-color: #212128;
                     border: 1px solid #3C3C48;
+                    border-top: 1px solid #484856;
+                    border-bottom: 2px solid #141416;
                 }
                 QLabel {
                     background: transparent;

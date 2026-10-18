@@ -18,6 +18,7 @@ class FakeClientInstallerBackend:
     """Mock backend satisfying the installer seam for testing."""
     def __init__(self):
         self.calls = []
+        self.received_java = {}
 
     def install_vanilla(self, version_id, mc_dir, callback=None):
         self.calls.append(("vanilla", version_id, mc_dir))
@@ -27,20 +28,24 @@ class FakeClientInstallerBackend:
             callback["setProgress"](50)
             callback["setProgress"](100)
 
-    def install_fabric(self, mc_version, mc_dir, loader_version=None, callback=None):
+    def install_fabric(self, mc_version, mc_dir, loader_version=None, callback=None, java=None):
         self.calls.append(("fabric", mc_version, mc_dir, loader_version))
+        self.received_java["fabric"] = java
         return f"fabric-loader-{loader_version or '0.15.7'}-{mc_version}"
 
-    def install_quilt(self, mc_version, mc_dir, loader_version=None, callback=None):
+    def install_quilt(self, mc_version, mc_dir, loader_version=None, callback=None, java=None):
         self.calls.append(("quilt", mc_version, mc_dir, loader_version))
+        self.received_java["quilt"] = java
         return f"quilt-loader-{loader_version or '0.25.0'}-{mc_version}"
 
-    def install_forge(self, mc_version, mc_dir, forge_version=None, callback=None):
+    def install_forge(self, mc_version, mc_dir, forge_version=None, callback=None, java=None):
         self.calls.append(("forge", mc_version, mc_dir, forge_version))
+        self.received_java["forge"] = java
         return f"{mc_version}-forge-{forge_version or '47.2.0'}"
 
-    def install_neoforge(self, mc_version, mc_dir, loader_version=None, callback=None):
+    def install_neoforge(self, mc_version, mc_dir, loader_version=None, callback=None, java=None):
         self.calls.append(("neoforge", mc_version, mc_dir, loader_version))
+        self.received_java["neoforge"] = java
         return f"neoforge-{loader_version or '20.4.80'}-{mc_version}"
 
 
@@ -364,6 +369,146 @@ class TestProfileEngineIntegration(unittest.TestCase):
             pid = list(mock_launcher.profiles.keys())[0]
             self.assertEqual(mock_launcher.profiles[pid]["loader"], "neoforge")
             mock_launcher.install_engine_for_profile.assert_called_once_with(pid, "1.20.1", "neoforge")
+
+
+class TestJavaRuntimeProvisioning(unittest.TestCase):
+    def test_get_java_major_version(self):
+        from runtime_provisioner import get_java_major_version
+
+        with patch("runtime_provisioner.os.path.isfile", return_value=True):
+            # Java 21
+            mock_res_21 = MagicMock(stdout='openjdk version "21.0.2" 2024-01-16\nOpenJDK Runtime Environment')
+            with patch("runtime_provisioner.subprocess.run", return_value=mock_res_21):
+                self.assertEqual(get_java_major_version("/dummy/java.exe"), 21)
+
+            # Java 17
+            mock_res_17 = MagicMock(stdout='java version "17.0.9" 2023-10-17 LTS')
+            with patch("runtime_provisioner.subprocess.run", return_value=mock_res_17):
+                self.assertEqual(get_java_major_version("/dummy/java.exe"), 17)
+
+            # Java 8 legacy format
+            mock_res_8 = MagicMock(stdout='java version "1.8.0_361"\nJava(TM) SE Runtime Environment')
+            with patch("runtime_provisioner.subprocess.run", return_value=mock_res_8):
+                self.assertEqual(get_java_major_version("/dummy/java.exe"), 8)
+
+            # Malformed output
+            mock_res_err = MagicMock(stdout="Not recognized")
+            with patch("runtime_provisioner.subprocess.run", return_value=mock_res_err):
+                self.assertIsNone(get_java_major_version("/dummy/java.exe"))
+
+        # Missing file
+        self.assertIsNone(get_java_major_version("/nonexistent/file"))
+
+    def test_get_required_jvm_info(self):
+        from runtime_provisioner import get_required_jvm_info
+
+        # 1.20.1 requires Java 17 (gamma)
+        comp_17, maj_17 = get_required_jvm_info("1.20.1")
+        self.assertEqual(comp_17, "java-runtime-gamma")
+        self.assertEqual(maj_17, 17)
+
+        # 1.21.1 requires Java 21 (delta)
+        comp_21, maj_21 = get_required_jvm_info("1.21.1")
+        self.assertEqual(comp_21, "java-runtime-delta")
+        self.assertEqual(maj_21, 21)
+
+        # 1.16.5 requires Java 8 (legacy)
+        comp_8, maj_8 = get_required_jvm_info("1.16.5")
+        self.assertEqual(comp_8, "jre-legacy")
+        self.assertEqual(maj_8, 8)
+
+    def test_find_system_java_respects_version(self):
+        backend = FakeClientInstallerBackend()
+        provisioner = RuntimeProvisioner(installer_backend=backend)
+
+        with patch("runtime_provisioner.shutil.which", return_value="C:\\system\\java.exe"):
+            # System java is 8, requirement is 17 -> reject
+            with patch("runtime_provisioner.get_java_major_version", return_value=8):
+                self.assertIsNone(provisioner.find_system_java(min_major=17))
+
+            # System java is 21, requirement is 17 -> accept
+            with patch("runtime_provisioner.get_java_major_version", return_value=21):
+                self.assertEqual(provisioner.find_system_java(min_major=17), "C:\\system\\java.exe")
+
+    def test_ensure_java_runtime_uses_installed_mojang(self):
+        backend = FakeClientInstallerBackend()
+        provisioner = RuntimeProvisioner(installer_backend=backend)
+
+        with patch("minecraft_launcher_lib.runtime.get_executable_path", return_value="/mojang/java.exe"), \
+             patch("runtime_provisioner.os.path.isfile", return_value=True):
+            resolved = provisioner.ensure_java_runtime("1.20.1", "/mock/mc")
+            self.assertEqual(resolved, "/mojang/java.exe")
+
+    def test_ensure_java_runtime_provisions_on_clean_machine(self):
+        backend = FakeClientInstallerBackend()
+        provisioner = RuntimeProvisioner(installer_backend=backend)
+
+        exec_paths = [None, None, "/downloaded/mojang/java.exe"]
+        def mock_get_path(*args, **kwargs):
+            return exec_paths.pop(0) if exec_paths else "/downloaded/mojang/java.exe"
+
+        mock_install = MagicMock()
+        status_msgs = []
+
+        with patch("minecraft_launcher_lib.runtime.get_executable_path", side_effect=mock_get_path), \
+             patch("minecraft_launcher_lib.runtime.install_jvm_runtime", mock_install), \
+             patch.object(provisioner, "find_system_java", return_value=None), \
+             patch("runtime_provisioner.os.path.isfile", return_value=True):
+            resolved = provisioner.ensure_java_runtime(
+                "1.20.1",
+                "/mock/mc",
+                on_progress=lambda c, t, msg: status_msgs.append(msg),
+            )
+            self.assertEqual(resolved, "/downloaded/mojang/java.exe")
+            mock_install.assert_called_once()
+            self.assertTrue(any("Java 17" in m for m in status_msgs))
+
+    def test_ensure_java_runtime_failure_clean_error(self):
+        backend = FakeClientInstallerBackend()
+        provisioner = RuntimeProvisioner(installer_backend=backend)
+
+        with patch("minecraft_launcher_lib.runtime.get_executable_path", return_value=None), \
+             patch.object(provisioner, "find_system_java", return_value=None), \
+             patch("minecraft_launcher_lib.runtime.install_jvm_runtime", side_effect=Exception("Connection timed out")):
+            with self.assertRaises(RuntimeError) as ctx:
+                provisioner.ensure_java_runtime("1.20.1", "/mock/mc", lang="tr")
+            self.assertIn("indirilemedi", str(ctx.exception))
+
+    def test_install_client_runtime_passes_java(self):
+        backend = FakeClientInstallerBackend()
+        provisioner = RuntimeProvisioner(installer_backend=backend, mc_dir="/mock/mc")
+
+        with patch.object(provisioner, "ensure_java_runtime", return_value="/custom/resolved/java.exe"):
+            res = provisioner.install_client_runtime(
+                RuntimeSpec(mc_version="1.20.1", loader="fabric", loader_version="0.15.7")
+            )
+            self.assertEqual(res, "fabric-loader-0.15.7-1.20.1")
+            self.assertEqual(backend.received_java.get("fabric"), "/custom/resolved/java.exe")
+
+    def test_launch_pipeline_auto_resolves_java(self):
+        from launch_pipeline import GameLaunchPipeline
+
+        pipeline = GameLaunchPipeline(mc_dir="/mock/mc")
+        mock_backend = MagicMock()
+        mock_backend.get_minecraft_command.return_value = ["/resolved/java.exe", "-jar", "client.jar"]
+        pipeline.backend = mock_backend
+
+        with patch("runtime_provisioner.RuntimeProvisioner.ensure_java_runtime", return_value="/resolved/java.exe"), \
+             patch("launch_pipeline.subprocess.Popen") as mock_popen, \
+             patch("launch_pipeline.os.makedirs"), \
+             patch("launch_pipeline.os.path.exists", return_value=True):
+            mock_proc = MagicMock(pid=1234)
+            mock_popen.return_value = mock_proc
+
+            session = pipeline.launch(
+                profile_id="p1",
+                profile_data={"version": "1.20.1", "path": "/mock/game/p1"},
+                auth_session={"name": "Player", "uuid": "1111", "token": "tok"},
+            )
+            self.assertEqual(session.pid, "1234")
+            # Verify options passed to backend included executablePath
+            call_options = mock_backend.get_minecraft_command.call_args[0][2]
+            self.assertEqual(call_options.get("executablePath"), "/resolved/java.exe")
 
 
 if __name__ == "__main__":
