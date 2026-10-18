@@ -5,6 +5,7 @@
 **A modern, custom Minecraft Launcher with built-in Modrinth integration, premium authentication, and local modpack support.**
 
 [![Release](https://img.shields.io/github/v/release/Arcturus003/Vega-Launcher?style=flat&color=8B5CF6)](https://github.com/Arcturus003/Vega-Launcher/releases/latest)
+[![Build & Tests](https://github.com/Arcturus003/Vega-Launcher/actions/workflows/test.yml/badge.svg)](https://github.com/Arcturus003/Vega-Launcher/actions)
 [![Downloads](https://img.shields.io/github/downloads/Arcturus003/Vega-Launcher/total?style=flat&color=64748B)](https://github.com/Arcturus003/Vega-Launcher/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-0F172A?style=flat)](https://github.com/Arcturus003/Vega-Launcher/releases)
 [![Python](https://img.shields.io/badge/Python-3.14%20%7C%20PySide6-1E293B?style=flat)](https://www.python.org/)
@@ -22,7 +23,7 @@
 
 <br/>
 
-![Vega Launcher Banner](assets/splash.jpg)
+![Vega Launcher 3D Mockup](assets/social_preview.png)
 
 </div>
 
