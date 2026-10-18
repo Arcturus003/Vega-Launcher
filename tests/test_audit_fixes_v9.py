@@ -47,9 +47,10 @@ class TestGameLaunchPipeline(unittest.TestCase):
         self.assertEqual(self.pipeline.detect_loader_type("quilt-loader-0.20.0"), "quilt")
         self.assertEqual(self.pipeline.detect_loader_type("1.20.4"), "vanilla")
 
+    @patch("runtime_provisioner.DEFAULT_PROVISIONER.ensure_java_runtime", return_value="C:/java/bin/java.exe")
     @patch("subprocess.Popen")
     @patch("os.makedirs")
-    def test_launch_execution(self, mock_makedirs, mock_popen):
+    def test_launch_execution(self, mock_makedirs, mock_popen, mock_ensure_java):
         mock_proc = MagicMock()
         mock_proc.pid = 9999
         mock_popen.return_value = mock_proc
