@@ -29,10 +29,12 @@ jobs:
         pip install -r requirements.txt
 
     - name: Verify source integrity
+      shell: cmd
       run: |
         python integrity_check.py verify
 
     - name: Run test suite (Headless PySide6)
+      shell: cmd
       env:
         QT_QPA_PLATFORM: offscreen
       run: |
