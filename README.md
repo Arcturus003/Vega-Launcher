@@ -2,7 +2,7 @@
 
 # Vega Launcher
 
-**A fast, obsidian-themed Minecraft launcher with built-in Modrinth browsing and automated Java provisioning.**
+**A modern, custom Minecraft Launcher with built-in Modrinth integration, premium authentication, and local modpack support.**
 
 [![Release](https://img.shields.io/github/v/release/Arcturus003/Vega-Launcher?style=flat&color=8B5CF6)](https://github.com/Arcturus003/Vega-Launcher/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Arcturus003/Vega-Launcher/total?style=flat&color=64748B)](https://github.com/Arcturus003/Vega-Launcher/releases)
