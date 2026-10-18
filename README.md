@@ -8,8 +8,6 @@ A fast, clean Minecraft launcher with built-in Modrinth support, automatic Java 
 
 English • [Türkçe](README_TR.md)
 
-![Vega Launcher Preview](assets/social_preview.png)
-
 ## Features
 
 - **Built-in Modrinth Browser**: Search and install modpacks, mods, and shaders directly inside the client.
