@@ -38,4 +38,4 @@ jobs:
       env:
         QT_QPA_PLATFORM: offscreen
       run: |
-        python -m unittest discover tests
+        python tests/run_tests.py
