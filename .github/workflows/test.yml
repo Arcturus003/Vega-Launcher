@@ -10,6 +10,8 @@ jobs:
   test:
     name: Run Unit Tests & Integrity Verification
     runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
 
     steps:
     - name: Check out repository

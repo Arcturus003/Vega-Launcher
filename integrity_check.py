@@ -1,6 +1,13 @@
 import hashlib
 import json
 import os
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 FILES_TO_CHECK = [
     "main.py",
@@ -37,8 +44,10 @@ def calculate_file_hash(filepath):
         return None
     sha256_hash = hashlib.sha256()
     with open(filepath, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
+        content = f.read()
+        # Normalize CRLF to LF so integrity check is deterministic across Git checkouts and platforms
+        content = content.replace(b"\r\n", b"\n")
+        sha256_hash.update(content)
     return sha256_hash.hexdigest()
 
 def generate_hashes():
