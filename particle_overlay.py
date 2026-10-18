@@ -30,7 +30,7 @@ class AmbientParticle:
     __slots__ = (
         "x", "y", "radius", "speed_y", "drift_amp", "drift_speed", "phase",
         "age", "max_age", "target_alpha", "seq_frames", "loop", "ticks_per_frame",
-        "color_idx", "sprite_idx"
+        "color_idx", "sprite_idx", "half_w", "half_h"
     )
 
     def __init__(self, w: float, h: float, sequences: List[Dict[str, Any]], color_count: int):
@@ -41,10 +41,14 @@ class AmbientParticle:
             seq = random.choice(sequences)
             self.seq_frames = seq["frames"]
             self.loop = seq.get("loop", True)
+            self.half_w = seq.get("half_w", 10.0)
+            self.half_h = seq.get("half_h", 10.0)
             base_tpf = seq.get("ticks_per_frame", 4)
         else:
             self.seq_frames = []
             self.loop = True
+            self.half_w = 10.0
+            self.half_h = 10.0
             base_tpf = 4
 
         num_frames = len(self.seq_frames) if self.seq_frames else 1
@@ -130,7 +134,7 @@ class ParticleOverlay(QWidget):
         self._update_active_sprites()
 
         self.timer = QTimer(self)
-        self.timer.setInterval(33)  # ~30 FPS
+        self.timer.setInterval(40)  # ~25 FPS (smooth ambient tick, lower CPU)
         self.timer.timeout.connect(self._on_tick)
 
         self._init_particles()
@@ -250,16 +254,25 @@ class ParticleOverlay(QWidget):
                 if seq.get("tintable", False) and self.palette:
                     for col in self.palette:
                         tinted_frames = [self._tint_pixmap(f, col) for f in seq["frames"]]
+                        hw = tinted_frames[0].width() / 2.0 if tinted_frames else 10.0
+                        hh = tinted_frames[0].height() / 2.0 if tinted_frames else 10.0
                         self._active_sequences.append({
                             "frames": tinted_frames,
                             "loop": seq.get("loop", True),
                             "ticks_per_frame": seq.get("ticks_per_frame", 4),
+                            "half_w": hw,
+                            "half_h": hh,
                         })
                 else:
+                    frames_list = list(seq["frames"])
+                    hw = frames_list[0].width() / 2.0 if frames_list else 10.0
+                    hh = frames_list[0].height() / 2.0 if frames_list else 10.0
                     self._active_sequences.append({
-                        "frames": list(seq["frames"]),
+                        "frames": frames_list,
                         "loop": seq.get("loop", True),
                         "ticks_per_frame": seq.get("ticks_per_frame", 4),
+                        "half_w": hw,
+                        "half_h": hh,
                     })
 
         # Keep a flattened list of active sprites
@@ -435,9 +448,7 @@ class ParticleOverlay(QWidget):
 
                 sprite = frames[frame_idx]
                 painter.setOpacity(alpha / 255.0)
-                sw = sprite.width()
-                sh = sprite.height()
-                painter.drawPixmap(int(p.x - sw / 2.0), int(p.y - sh / 2.0), sprite)
+                painter.drawPixmap(int(p.x - p.half_w), int(p.y - p.half_h), sprite)
 
         elif c_count > 0:
             # Fallback to soft glow circles if sprites cannot be loaded

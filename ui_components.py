@@ -320,6 +320,8 @@ class ModItemWidget(QWidget):
                 err_msg = f"Could not delete mod:\n{e}" if self.lang == "en" else f"Mod silinemedi:\n{e}"
                 QMessageBox.warning(self, "Error" if self.lang == "en" else "Hata", err_msg)
 
+_SCREENSHOT_ICON_CACHE = {}
+
 class InstalledModsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1098,27 +1100,47 @@ class InstalledModsPanel(QWidget):
         en = self.lang == "en"
         root = self._get_profile_root()
         shots_dir = os.path.join(root, "screenshots") if root else None
+        empty_txt = "No screenshots yet." if en else "Bu profilde henüz ekran görüntüsü yok."
         if not shots_dir or not os.path.exists(shots_dir):
-            item = QListWidgetItem("No screenshots yet." if en else "Bu profilde henüz ekran görüntüsü yok.")
+            item = QListWidgetItem(empty_txt)
             item.setTextAlignment(Qt.AlignCenter)
             item.setFlags(Qt.NoItemFlags)
             self.shot_list.addItem(item)
             return
-        files = [f for f in os.listdir(shots_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-        if not files:
-            item = QListWidgetItem("No screenshots yet." if en else "Bu profilde henüz ekran görüntüsü yok.")
+
+        try:
+            with os.scandir(shots_dir) as entries:
+                valid_entries = [
+                    (e.name, e.path, e.stat().st_mtime)
+                    for e in entries
+                    if e.is_file() and e.name.lower().endswith((".png", ".jpg", ".jpeg"))
+                ]
+        except Exception:
+            valid_entries = []
+
+        if not valid_entries:
+            item = QListWidgetItem(empty_txt)
             item.setTextAlignment(Qt.AlignCenter)
             item.setFlags(Qt.NoItemFlags)
             self.shot_list.addItem(item)
             return
-        files.sort(key=lambda x: os.path.getmtime(os.path.join(shots_dir, x)), reverse=True)
-        for fname in files[:60]:
-            fpath = os.path.join(shots_dir, fname)
-            dt_str = datetime.datetime.fromtimestamp(os.path.getmtime(fpath)).strftime("%Y-%m-%d %H:%M")
+
+        valid_entries.sort(key=lambda item: item[2], reverse=True)
+        for fname, fpath, mtime in valid_entries[:60]:
+            dt_str = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
             item = QListWidgetItem(f"{fname}   •   {dt_str}")
-            pix = QPixmap(fpath)
-            if not pix.isNull():
-                item.setIcon(QIcon(pix.scaled(72, 42, Qt.KeepAspectRatio, Qt.SmoothTransformation)))
+            cache_key = (fpath, mtime)
+            cached_icon = _SCREENSHOT_ICON_CACHE.get(cache_key)
+            if cached_icon is not None:
+                item.setIcon(cached_icon)
+            else:
+                pix = QPixmap(fpath)
+                if not pix.isNull():
+                    scaled_icon = QIcon(pix.scaled(72, 42, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                    if len(_SCREENSHOT_ICON_CACHE) >= 200:
+                        _SCREENSHOT_ICON_CACHE.pop(next(iter(_SCREENSHOT_ICON_CACHE)), None)
+                    _SCREENSHOT_ICON_CACHE[cache_key] = scaled_icon
+                    item.setIcon(scaled_icon)
             item.setData(Qt.UserRole, fpath)
             self.shot_list.addItem(item)
 
@@ -1237,8 +1259,14 @@ class InstalledModsPanel(QWidget):
             self.log_viewer.setPlainText("")
             return
         try:
-            with open(chosen_file, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
+            file_size = os.path.getsize(chosen_file)
+            buffer_size = min(file_size, 262144)
+            with open(chosen_file, "rb") as f:
+                if file_size > buffer_size:
+                    f.seek(file_size - buffer_size)
+                raw_bytes = f.read()
+            text = raw_bytes.decode("utf-8", errors="replace")
+            lines = text.splitlines(keepends=True)
             content = "".join(lines[-400:])
         except Exception as e:
             content = str(e)

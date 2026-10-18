@@ -68,12 +68,24 @@ def _process_icon_queue():
 
         def _on_loaded(data, u=url):
             _cache_icon(u, data)
+            scaled = None
+            try:
+                pixmap = QPixmap()
+                if pixmap.loadFromData(data):
+                    scaled = pixmap.scaled(38, 38, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    if len(_PIXMAP_CACHE) >= _MAX_CACHE_SIZE:
+                        first_k = next(iter(_PIXMAP_CACHE), None)
+                        if first_k:
+                            _PIXMAP_CACHE.pop(first_k, None)
+                    _PIXMAP_CACHE[u] = scaled
+            except Exception:
+                pass
             refs = _IN_FLIGHT_REQUESTS.pop(u, [])
             for ref in refs:
                 c = ref() if hasattr(ref, "__call__") else ref
                 if c:
                     try:
-                        c.set_icon(data)
+                        c.set_icon(scaled if scaled is not None else data)
                     except (RuntimeError, Exception):
                         pass
 

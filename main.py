@@ -3647,6 +3647,12 @@ oLink.Save
         mapping = {"home": 0, "packs": 1, "mods": 2, "shaders": 3, "bedrock_home": 4, "dungeons_home": 5, "server": 6, "settings": 7}
         idx = mapping.get(key, 0)
         self.stack.setCurrentIndex(idx)
+        if hasattr(self, 'particle_overlay') and self.particle_overlay:
+            if key in ("home", "bedrock_home", "dungeons_home"):
+                if not self.isMinimized() and not getattr(self, '_is_game_running', False):
+                    self.particle_overlay.resume()
+            else:
+                self.particle_overlay.pause()
         
         if key == "home":
             # If a profile is selected, show its mod panel, else hide
@@ -3878,11 +3884,17 @@ oLink.Save
 
             if hasattr(self, "profile_list"):
                 curr_row = self.profile_list.currentRow()
-                for i in range(self.profile_list.count()):
-                    it = self.profile_list.item(i)
-                    w = self.profile_list.itemWidget(it)
-                    if w and hasattr(w, "set_selected"):
-                        w.set_selected(i == curr_row)
+                last_row = getattr(self, "_last_selected_profile_row", -1)
+                if last_row != curr_row:
+                    if 0 <= last_row < self.profile_list.count():
+                        old_w = self.profile_list.itemWidget(self.profile_list.item(last_row))
+                        if old_w and hasattr(old_w, "set_selected"):
+                            old_w.set_selected(False)
+                    if 0 <= curr_row < self.profile_list.count():
+                        new_w = self.profile_list.itemWidget(self.profile_list.item(curr_row))
+                        if new_w and hasattr(new_w, "set_selected"):
+                            new_w.set_selected(True)
+                    self._last_selected_profile_row = curr_row
         else:
             no_prof_txt = "No Profile Selected" if en else "Profil Seçilmedi"
             self.active_profile_version = None
