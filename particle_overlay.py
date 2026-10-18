@@ -105,6 +105,7 @@ class ParticleOverlay(QWidget):
 
         self._enabled = True
         self._is_paused = False
+        self._filter_installed = False
         self._preset = "portal"
         self.num_particles = max(10, min(60, num_particles))
         self.particles: List[AmbientParticle] = []
@@ -336,6 +337,24 @@ class ParticleOverlay(QWidget):
         self._is_paused = False
         if self._enabled and not self.timer.isActive():
             self.timer.start()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        win = self.window()
+        if win and not getattr(self, "_filter_installed", False):
+            win.installEventFilter(self)
+            self._filter_installed = True
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.WindowStateChange:
+            win = self.window()
+            if win and win.isMinimized():
+                if self.timer.isActive():
+                    self.timer.stop()
+            elif self._enabled and not self._is_paused:
+                if not self.timer.isActive():
+                    self.timer.start()
+        return super().eventFilter(watched, event)
 
     def changeEvent(self, event):
         super().changeEvent(event)

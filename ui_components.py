@@ -264,9 +264,6 @@ class ModItemWidget(QWidget):
             if hasattr(self, "icon_box"):
                 self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;")
 
-            if hasattr(self, "icon_box"):
-                self.icon_box.setStyleSheet("background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;")
-
     def set_language(self, lang="tr"):
         self.lang = lang
         self.update_toggle_style()
@@ -987,7 +984,12 @@ class InstalledModsPanel(QWidget):
 
         # Background thread for deep disk size scanning without blocking GUI
         if getattr(self, "_world_scanner_thread", None) and self._world_scanner_thread.isRunning():
-            return
+            if getattr(self._world_scanner_thread, "saves_dir", None) == saves_dir:
+                return
+            try:
+                self._world_scanner_thread.worlds_scanned.disconnect()
+            except Exception:
+                pass
         self._world_scanner_thread = WorldScannerThread(saves_dir, parent=self)
         self._world_scanner_thread.worlds_scanned.connect(self._on_worlds_scanned)
         self._world_scanner_thread.start()

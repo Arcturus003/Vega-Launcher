@@ -131,7 +131,10 @@ class TransactionalRollback:
                 try:
                     os.replace(cur, bak)
                 except Exception:
-                    pass
+                    try:
+                        shutil.move(str(cur), str(bak))
+                    except Exception as err:
+                        print(f"[TransactionalRollback] Warning: Could not backup {name}: {err}")
         return self
 
     def rollback(self) -> None:
@@ -145,7 +148,10 @@ class TransactionalRollback:
                 try:
                     os.replace(bak, cur)
                 except Exception:
-                    pass
+                    try:
+                        shutil.move(str(bak), str(cur))
+                    except Exception as err:
+                        print(f"[TransactionalRollback] Warning: Could not restore {name}: {err}")
         self.rolled_back = True
 
     def commit(self) -> None:
@@ -194,7 +200,7 @@ class DefaultLoaderInstallerAdapter:
 
 class ModrinthAPI:
     BASE_URL = "https://api.modrinth.com/v2"
-    HEADERS = {"User-Agent": "VegaLauncher/1.0 (https://github.com/Arcturus003/Vega-Launcher)"}
+    HEADERS = {"User-Agent": "VegaLauncher/2.0.0 (https://github.com/Arcturus003/Vega-Launcher)"}
     _session = None
 
     @classmethod

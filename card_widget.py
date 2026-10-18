@@ -94,7 +94,7 @@ class ImageLoaderThread(QThread):
         self.url = url
     def run(self):
         try:
-            resp = requests.get(self.url, timeout=7, headers={"User-Agent": "VegaLauncher/1.0.3"})
+            resp = requests.get(self.url, timeout=7, headers={"User-Agent": "VegaLauncher/2.0.0"})
             if resp.status_code == 200:
                 self.loaded.emit(resp.content)
                 self.loaded_with_url.emit(self.url, resp.content)
@@ -349,8 +349,9 @@ class CardWidget(QFrame):
             self.setStyleSheet(themed)
         else:
             self.setStyleSheet(base)
-
-        self._update_accent_badges(theme_key or "electric_amethyst")
+        if getattr(self, "_last_badged_theme", None) != (theme_key or "electric_amethyst"):
+            self._update_accent_badges(theme_key or "electric_amethyst")
+            self._last_badged_theme = theme_key or "electric_amethyst"
 
     def _update_accent_badges(self, theme_key="electric_amethyst"):
         try:

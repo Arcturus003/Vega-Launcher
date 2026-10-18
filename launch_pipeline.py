@@ -51,7 +51,7 @@ class GameLaunchPipeline:
         extra_jvm: str = "",
         java_path: Optional[str] = None,
         launcher_name: str = "Vega Launcher",
-        launcher_version: str = "1.0",
+        launcher_version: str = "2.0.0",
     ) -> dict:
         """Construct the options dict required by minecraft_launcher_lib."""
         options: dict[str, Any] = {

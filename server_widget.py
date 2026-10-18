@@ -88,13 +88,14 @@ class BackupThread(QThread):
     stage_update = Signal(str)
     progress_update = Signal(int)
     
-    def __init__(self, server_dir, delete_local=False, server_thread=None, cloud_adapter=None, lang="tr"):
+    def __init__(self, server_dir, delete_local=False, server_thread=None, cloud_adapter=None, lang="tr", coordinator=None):
         super().__init__()
         self.server_dir = server_dir
         self.delete_local = delete_local
         self.server_thread = server_thread
         self.cloud_adapter = cloud_adapter
         self.lang = lang
+        self.coordinator = coordinator
         
     def run(self):
         en = self.lang == "en"
@@ -114,9 +115,13 @@ class BackupThread(QThread):
                 import time
                 start_t = time.time()
                 while time.time() - start_t < 3.0:
-                    time.sleep(0.2)
-                    recent_logs = getattr(self, '_log_history', [])[-10:] if hasattr(self, '_log_history') else []
-                    if any("saved the game" in str(l).lower() or "all dimensions are saved" in str(l).lower() or "all chunks are saved" in str(l).lower() for l in recent_logs):
+                    time.sleep(0.1)
+                    log_history = []
+                    if self.coordinator and hasattr(self.coordinator, "parser"):
+                        log_history = self.coordinator.parser.history[-10:]
+                    elif self.server_thread:
+                        log_history = getattr(self.server_thread, "_log_history", [])[-10:] or getattr(self.server_thread, "log_history", [])[-10:]
+                    if any("saved the game" in str(l).lower() or "all dimensions are saved" in str(l).lower() or "all chunks are saved" in str(l).lower() for l in log_history):
                         break
 
         def _after():
@@ -2197,6 +2202,7 @@ class ServerWidget(QWidget):
             delete_local=self.chk_delete_local.isChecked(),
             server_thread=self.server_thread,
             lang=lang,
+            coordinator=getattr(self, 'process_coordinator', None),
         )
         self._api_threads.append(thread)
         thread.stage_update.connect(lambda text: self._backup_progress.setLabelText(text) if getattr(self, '_backup_progress', None) else None)
