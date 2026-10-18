@@ -1,0 +1,29 @@
+name: "✨ Yeni Özellik / Feature Request"
+description: "Vega Launcher için yeni bir özellik veya iyileştirme önerin / Propose a new feature or idea"
+title: "[Öneri / Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vega Launcher'ı geliştirmek için fikirlerinizi bizimle paylaşın!
+        Share your ideas and suggestions to help improve Vega Launcher!
+  - type: textarea
+    id: feature
+    attributes:
+      label: "Önerilen Özellik / Proposed Feature"
+      description: "Eklenmesini istediğiniz özellik nedir? / What feature would you like to see?"
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: "Kullanım Amacı & Faydası / Motivation & Benefit"
+      description: "Bu özellik oyunculara veya geliştiricilere nasıl bir kolaylık sağlar?"
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Varsa Alternatif Çözümler / Alternative Solutions"
+      description: "Düşündüğünüz alternatif bir yaklaşım var mı?"

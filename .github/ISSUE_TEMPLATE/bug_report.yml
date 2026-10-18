@@ -1,0 +1,53 @@
+name: "🐛 Hata Bildirimi / Bug Report"
+description: "Vega Launcher ile ilgili bir hata veya çökme bildirin / Report a bug or crash in Vega Launcher"
+title: "[Hata / Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sorunu en kısa sürede çözebilmemiz için lütfen aşağıdaki alanları doldurun.
+        Please fill out the sections below so we can resolve the issue quickly.
+  - type: input
+    id: version
+    attributes:
+      label: "Launcher Sürümü / Launcher Version"
+      description: "Hangi Vega Launcher sürümünü kullanıyorsunuz? (Örn: v2.0.0)"
+      placeholder: "v2.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: "İşletim Sistemi / Operating System"
+      options:
+        - "Windows 11 (64-bit)"
+        - "Windows 10 (64-bit)"
+        - "Diğer / Other"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "Sorun Açıklaması / Description"
+      description: "Ne oldu ve ne olmasını bekliyordunuz? / What happened and what did you expect?"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Tekrarlama Adımları / Steps to Reproduce"
+      description: "Hatayı tetiklemek için izlenen adımlar / Steps to reproduce the behavior"
+      placeholder: |
+        1. '...' sekmesine tıklandı
+        2. '...' modpack'i seçildi
+        3. 'Kur' butonuna basıldı
+        4. Hata mesajı çıktı
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Log Çıktısı veya Hata Mesajı / Logs or Error Details"
+      description: "Varsa crash log veya hata metni / Crash log or console output if available"
+      render: shell
