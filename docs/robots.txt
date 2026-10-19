@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://arcturus003.github.io/Vega-Launcher/sitemap.xml
