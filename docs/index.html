@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Primary Meta Tags -->
+  <title>Vega Launcher — Modern Minecraft Client</title>
+  <meta name="title" content="Vega Launcher — Modern Minecraft Client">
+  <meta name="description" content="Vega Launcher is a fast, clean Minecraft launcher for Windows with built-in Modrinth support, automatic Java setup, and instance isolation.">
+  <meta name="keywords" content="Vega Launcher, Minecraft Launcher, Modrinth Launcher, Minecraft Client, Minecraft Modpack Installer, Minecraft Java, Fabric, Quilt, Forge, NeoForge">
+  <meta name="author" content="Arcturus">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://arcturus003.github.io/Vega-Launcher/">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <!-- Google Site Verification Tag (Paste your GSC verification code into the content attribute below) -->
+  <meta name="google-site-verification" content="">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://arcturus003.github.io/Vega-Launcher/">
+  <meta property="og:title" content="Vega Launcher — Modern Minecraft Client">
+  <meta property="og:description" content="A fast, lightweight Minecraft launcher with native Modrinth integration and automatic Java setup.">
+  <meta property="og:image" content="https://arcturus003.github.io/Vega-Launcher/social_preview.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://arcturus003.github.io/Vega-Launcher/">
+  <meta property="twitter:title" content="Vega Launcher — Modern Minecraft Client">
+  <meta property="twitter:description" content="A fast, lightweight Minecraft launcher with native Modrinth integration and automatic Java setup.">
+  <meta property="twitter:image" content="https://arcturus003.github.io/Vega-Launcher/social_preview.png">
+
+  <!-- JSON-LD Structured Data for Google -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Vega Launcher",
+    "operatingSystem": "Windows 10, Windows 11",
+    "applicationCategory": "GameApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "A modern, custom Minecraft Launcher with built-in Modrinth integration, premium authentication, and local modpack support.",
+    "downloadUrl": "https://github.com/Arcturus003/Vega-Launcher/releases/latest",
+    "author": {
+      "@type": "Person",
+      "name": "Arcturus"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg: #09090E;
+      --bg-card: #12121A;
+      --bg-card-hover: #181824;
+      --border: #222230;
+      --border-accent: rgba(139, 92, 246, 0.4);
+      --accent: #8B5CF6;
+      --accent-hover: #A855F7;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --radius: 12px;
+      --max-w: 1120px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Background Nebula Glow */
+    .nebula {
+      position: absolute;
+      top: -150px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1000px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.18) 0%, rgba(124, 58, 237, 0.08) 45%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Container */
+    .container {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Navigation */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.5px;
+    }
+    .brand img {
+      width: 28px;
+      height: 28px;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+    .nav-links a:hover {
+      color: var(--text);
+    }
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      color: var(--text);
+      font-weight: 600;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #C084FC;
+      margin-bottom: 24px;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      background: #A855F7;
+      border-radius: 50%;
+    }
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #FFFFFF 30%, #C084FC 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 36px;
+    }
+    .cta-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 60px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
+      color: #FFFFFF;
+      font-weight: 700;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      border: 1px solid #A78BFA;
+      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 40px rgba(124, 58, 237, 0.5);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-card);
+      color: var(--text);
+      font-weight: 600;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      border: 1px solid var(--border);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Preview Showcase */
+    .preview-wrapper {
+      max-width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 50px rgba(139, 92, 246, 0.12);
+      margin-bottom: 80px;
+      background: #000;
+    }
+    .preview-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Features Grid */
+    .features-section {
+      padding: 40px 0 80px;
+    }
+    .section-title {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .section-title h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+    .section-title p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: transform 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      background: var(--bg-card-hover);
+      border-color: var(--border-accent);
+    }
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      margin-bottom: 20px;
+    }
+    .card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #FFFFFF;
+    }
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Specs Table */
+    .specs-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      margin-bottom: 80px;
+    }
+    .specs-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+      text-align: center;
+    }
+    .spec-item {
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .spec-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .spec-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 48px 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+    .footer-links a:hover {
+      color: #FFFFFF;
+    }
+    .disclaimer {
+      font-size: 0.8rem;
+      color: #64748B;
+      max-width: 600px;
+      margin: 12px auto 0;
+    }
+
+    @media (max-width: 768px) {
+      .hero { padding: 48px 0; }
+      .grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="nebula"></div>
+
+  <header>
+    <div class="container nav">
+      <div class="brand">
+        <img src="ender_eye.png" alt="Vega Launcher Logo">
+        <span>Vega Launcher</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#specs">Requirements</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher/releases" class="nav-btn" target="_blank" rel="noopener">Releases</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        v2.0.0 Stable Release for Windows
+      </div>
+      <h1>
+        Minecraft, <span class="gradient-text">Refined.</span>
+      </h1>
+      <p class="subtitle">
+        A fast, dark-themed Minecraft client with built-in Modrinth modpack browsing, automated Java runtime provisioning, and isolated profiles.
+      </p>
+
+      <div class="cta-group">
+        <a href="https://github.com/Arcturus003/Vega-Launcher/releases/latest" class="btn-primary" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download for Windows
+        </a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher" class="btn-secondary" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+          View Source Code
+        </a>
+      </div>
+
+      <!-- Preview Image -->
+      <div class="preview-wrapper">
+        <img src="social_preview.png" alt="Vega Launcher 2.5D Client Interface Showcase" width="1280" height="640">
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features-section" id="features">
+      <div class="section-title">
+        <h2>Built for Speed & Reliability</h2>
+        <p>Everything you need for clean Minecraft installations without setup friction.</p>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <h3>Native Modrinth Browser</h3>
+          <p>Search, filter, and install popular modpacks, individual mods, and shaderpacks directly inside the launcher without opening a web browser.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">☕</div>
+          <h3>Zero-Friction Java Setup</h3>
+          <p>Vega Launcher detects version requirements (Java 8, 17, or 21) and downloads Mojang's official minimal JRE runtime automatically when needed.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">⚙️</div>
+          <h3>Multi-Loader Support</h3>
+          <p>First-class integration for Fabric, Quilt, Forge, and NeoForge mod loaders with instant RAM preset allocation (4 GB, 6 GB, 8 GB).</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">📁</div>
+          <h3>Isolated Instances</h3>
+          <p>Each profile operates in its own dedicated directory. Your mod versions, world saves, resource packs, and configs never conflict.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">🛡️</div>
+          <h3>Windows DPAPI Security</h3>
+          <p>Genuine Microsoft OAuth session tokens are encrypted at-rest using native Windows Data Protection API (DPAPI) for maximum local security.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">🎨</div>
+          <h3>Obsidian Dark Aesthetics</h3>
+          <p>Sleek dark surfaces with 5 customizable accent themes (Electric Amethyst, Ender Pearl, Nether Crimson, Emerald Lush, Deep Dark) and procedural audio.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Specs -->
+    <section class="specs-section" id="specs">
+      <h3 class="specs-title">System Requirements</h3>
+      <div class="specs-grid">
+        <div class="spec-item">
+          <div class="spec-label">Operating System</div>
+          <div class="spec-value">Windows 10 / 11 (64-bit)</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-label">Architecture</div>
+          <div class="spec-value">x86_64</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-label">System Memory</div>
+          <div class="spec-value">4 GB Min (8 GB Rec)</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-label">Authentication</div>
+          <div class="spec-value">Microsoft Account</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/Arcturus003/Vega-Launcher" target="_blank" rel="noopener">GitHub Repository</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher/issues" target="_blank" rel="noopener">Report an Issue</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher/blob/main/README_TR.md" target="_blank" rel="noopener">Türkçe Dokümantasyon</a>
+      </div>
+      <p>Vega Launcher &copy; 2026. Open source software developed by Arcturus.</p>
+      <p class="disclaimer">
+        Vega Launcher is an independent open-source project and is not affiliated with, endorsed by, or associated with Mojang Synergies AB or Microsoft Corporation.
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
