@@ -1,6 +1,6 @@
 __app_name__ = "Vega Launcher"
 __author__ = "Arcturus"
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __copyright__ = "© 2026 Arcturus. All rights reserved."
 
 import sys

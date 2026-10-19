@@ -553,13 +553,10 @@ class RuntimeProvisioner:
             with urllib.request.urlopen(req_neo, timeout=15) as neo_resp:
                 neo_data = json.loads(neo_resp.read().decode("utf-8"))
                 versions = neo_data.get("versions", [])
-                prefix = ""
-                if version == "1.21.1": prefix = "21.1."
-                elif version == "1.21": prefix = "21.0."
-                elif version == "1.20.4": prefix = "20.4."
-                elif version == "1.20.2": prefix = "20.2."
-                else:
+                m = re.match(r"^1\.(\d+)(?:\.(\d+))?$", version)
+                if not m or int(m.group(1)) < 20 or (int(m.group(1)) == 20 and int(m.group(2) or 0) < 2):
                     raise Exception(f"NeoForge version is not supported for {version}." if en else f"{version} için NeoForge sürümü desteklenmiyor.")
+                prefix = f"{m.group(1)}.{m.group(2) or '0'}."
                 valid_versions = [v for v in versions if v.startswith(prefix)]
                 if not valid_versions:
                     raise Exception(f"NeoForge version not found for {version}." if en else f"{version} için NeoForge sürümü bulunamadı.")

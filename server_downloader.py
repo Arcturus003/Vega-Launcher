@@ -86,7 +86,7 @@ class ServerSoftwareDialog(QDialog):
         layout.addWidget(lbl2)
         
         self.combo_version = QComboBox()
-        self.combo_version.addItems(["1.21.1", "1.21", "1.20.4", "1.20.2", "1.20.1", "1.20", "1.19.4", "1.19.2", "1.18.2", "1.17.1", "1.16.5"])
+        self.combo_version.addItems(["1.21.4", "1.21.3", "1.21.2", "1.21.1", "1.21", "1.20.4", "1.20.2", "1.20.1", "1.20", "1.19.4", "1.19.2", "1.18.2", "1.17.1", "1.16.5"])
         self.combo_version.setStyleSheet("padding: 5px; background: #1E1E1E;")
         layout.addWidget(self.combo_version)
         

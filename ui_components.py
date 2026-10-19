@@ -1096,7 +1096,14 @@ class InstalledModsPanel(QWidget):
         w_path = item.data(Qt.UserRole) if item else None
         if not w_path or not os.path.exists(w_path):
             return
-        w_name = os.path.basename(w_path)
+        root = self._get_profile_root()
+        if not root:
+            return
+        saves_real = os.path.realpath(os.path.join(root, "saves"))
+        w_real = os.path.realpath(w_path)
+        if not (w_real.startswith(saves_real + os.sep) and os.path.isdir(w_real)):
+            return
+        w_name = os.path.basename(w_real)
         msg = f"Delete world '{w_name}' permanently?" if en else f"'{w_name}' dünyasını kalıcı olarak silmek istediğinize emin misiniz?"
         if QMessageBox.question(self, "Confirm" if en else "Onay", msg, QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
@@ -1105,7 +1112,7 @@ class InstalledModsPanel(QWidget):
             except Exception:
                 pass
             try:
-                shutil.rmtree(w_path)
+                shutil.rmtree(w_real)
                 self.refresh_worlds()
             except Exception as e:
                 QMessageBox.warning(self, "Error" if en else "Hata", str(e))
@@ -1199,6 +1206,13 @@ class InstalledModsPanel(QWidget):
         fpath = item.data(Qt.UserRole) if item else None
         if not fpath or not os.path.exists(fpath):
             return
+        root = self._get_profile_root()
+        if not root:
+            return
+        shots_real = os.path.realpath(os.path.join(root, "screenshots"))
+        f_real = os.path.realpath(fpath)
+        if not (f_real.startswith(shots_real + os.sep) and os.path.isfile(f_real)):
+            return
         if QMessageBox.question(self, "Confirm" if en else "Onay", "Delete this screenshot?" if en else "Bu ekran görüntüsü silinsin mi?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
                 from sound_manager import SoundManager
@@ -1206,7 +1220,7 @@ class InstalledModsPanel(QWidget):
             except Exception:
                 pass
             try:
-                os.remove(fpath)
+                os.remove(f_real)
                 self.refresh_screenshots()
             except Exception as e:
                 QMessageBox.warning(self, "Error" if en else "Hata", str(e))

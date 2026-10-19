@@ -48,16 +48,15 @@ class AuthenticationVault:
     DPAPI_PREFIX = "dpapi:"
 
     @classmethod
-    def is_network_available(cls, host: str = "1.1.1.1", port: int = 53, timeout: float = 1.2) -> bool:
-        """Fast non-blocking connectivity check via DNS socket to avoid HTTP timeout lags when offline."""
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(timeout)
-            s.connect((host, port))
-            s.close()
-            return True
-        except Exception:
-            return False
+    def is_network_available(cls, host: str = "1.1.1.1", port: int = 443, timeout: float = 1.2) -> bool:
+        """Fast non-blocking connectivity check to avoid HTTP timeout lags when offline."""
+        for target_port in (port, 53) if port != 53 else (53, 443):
+            try:
+                with socket.create_connection((host, target_port), timeout=timeout):
+                    return True
+            except Exception:
+                continue
+        return False
 
     @classmethod
     def needs_rebind(cls, data: str) -> bool:
