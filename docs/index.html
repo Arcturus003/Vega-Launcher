@@ -8,13 +8,13 @@
   <title>Vega Launcher — Modern Minecraft Client</title>
   <meta name="title" content="Vega Launcher — Modern Minecraft Client">
   <meta name="description" content="Vega Launcher is a fast, clean Minecraft launcher for Windows with built-in Modrinth support, automatic Java setup, and instance isolation.">
-  <meta name="keywords" content="Vega Launcher, Minecraft Launcher, Modrinth Launcher, Minecraft Client, Minecraft Modpack Installer, Minecraft Java, Fabric, Quilt, Forge, NeoForge">
+  <meta name="keywords" content="Vega Launcher, Minecraft Launcher, Modrinth Client, Minecraft Modpack Installer, Minecraft Windows 11, Fabric, Quilt, Forge, NeoForge">
   <meta name="author" content="Arcturus">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://arcturus003.github.io/Vega-Launcher/">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
 
-  <!-- Google Site Verification Tag (Paste your GSC verification code into the content attribute below) -->
+  <!-- Google Site Verification Tag (Paste verification code into content attribute below) -->
   <meta name="google-site-verification" content="">
 
   <!-- Open Graph / Facebook -->
@@ -55,17 +55,21 @@
 
   <style>
     :root {
-      --bg: #09090E;
-      --bg-card: #12121A;
-      --bg-card-hover: #181824;
-      --border: #222230;
-      --border-accent: rgba(139, 92, 246, 0.4);
+      --bg: #07070B;
+      --bg-card: #101017;
+      --bg-card-hover: #161622;
+      --border: #1F1F2E;
+      --border-accent: rgba(139, 92, 246, 0.45);
       --accent: #8B5CF6;
-      --accent-hover: #A855F7;
+      --accent-light: #A855F7;
+      --accent-glow: #C084FC;
       --text: #F8FAFC;
       --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --green: #10B981;
+      --red: #EF4444;
       --radius: 12px;
-      --max-w: 1120px;
+      --max-w: 1140px;
     }
 
     * {
@@ -81,24 +85,16 @@
       line-height: 1.6;
       overflow-x: hidden;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
+
+    /* Bilingual display rules */
+    body.lang-en .lang-tr { display: none !important; }
+    body.lang-tr .lang-en { display: none !important; }
 
     a {
       color: inherit;
       text-decoration: none;
-    }
-
-    /* Background Nebula Glow */
-    .nebula {
-      position: absolute;
-      top: -150px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 1000px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(139, 92, 246, 0.18) 0%, rgba(124, 58, 237, 0.08) 45%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
     }
 
     /* Container */
@@ -107,13 +103,17 @@
       margin: 0 auto;
       padding: 0 24px;
       position: relative;
-      z-index: 1;
     }
 
-    /* Navigation */
+    /* Header & Navigation */
     header {
-      padding: 24px 0;
+      padding: 20px 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(7, 7, 11, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
     }
     .nav {
       display: flex;
@@ -129,8 +129,13 @@
       letter-spacing: -0.5px;
     }
     .brand img {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
     .nav-links {
       display: flex;
@@ -142,47 +147,49 @@
     .nav-links a:hover {
       color: var(--text);
     }
-    .nav-btn {
+    .btn-lang {
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--border);
-      padding: 8px 16px;
-      border-radius: 8px;
       color: var(--text);
-      font-weight: 600;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
       transition: background 0.2s, border-color 0.2s;
     }
-    .nav-btn:hover {
+    .btn-lang:hover {
       background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.25);
     }
 
     /* Hero Section */
     .hero {
-      padding: 80px 0 60px;
+      padding: 70px 0 50px;
       text-align: center;
     }
-    .badge {
+    .badge-pill {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 14px;
+      padding: 6px 16px;
       background: rgba(139, 92, 246, 0.12);
       border: 1px solid rgba(139, 92, 246, 0.35);
       border-radius: 999px;
       font-size: 0.85rem;
       font-weight: 600;
-      color: #C084FC;
+      color: var(--accent-glow);
       margin-bottom: 24px;
     }
     .badge-dot {
       width: 8px;
       height: 8px;
-      background: #A855F7;
+      background: var(--accent-light);
       border-radius: 50%;
     }
     h1 {
-      font-size: clamp(2.5rem, 6vw, 4rem);
-      font-weight: 800;
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 900;
       letter-spacing: -1.5px;
       line-height: 1.1;
       margin-bottom: 20px;
@@ -198,13 +205,21 @@
       max-width: 680px;
       margin: 0 auto 36px;
     }
-    .cta-group {
+
+    /* Download Box / CTA */
+    .cta-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 50px;
+    }
+    .cta-buttons {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 16px;
       flex-wrap: wrap;
-      margin-bottom: 60px;
     }
     .btn-primary {
       display: inline-flex;
@@ -213,7 +228,7 @@
       background: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
       color: #FFFFFF;
       font-weight: 700;
-      padding: 14px 28px;
+      padding: 14px 32px;
       border-radius: 10px;
       font-size: 1.05rem;
       border: 1px solid #A78BFA;
@@ -241,56 +256,68 @@
       background: var(--bg-card-hover);
       border-color: rgba(255, 255, 255, 0.2);
     }
+    .cta-meta {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .cta-meta a {
+      color: var(--accent-light);
+      text-decoration: underline;
+    }
 
-    /* Preview Showcase */
-    .preview-wrapper {
+    /* Showcase Preview */
+    .preview-container {
       max-width: 100%;
       border-radius: 16px;
       overflow: hidden;
       border: 1px solid var(--border);
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 50px rgba(139, 92, 246, 0.12);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 50px rgba(139, 92, 246, 0.12);
       margin-bottom: 80px;
       background: #000;
     }
-    .preview-wrapper img {
+    .preview-container img {
       width: 100%;
       height: auto;
       display: block;
     }
 
-    /* Features Grid */
-    .features-section {
-      padding: 40px 0 80px;
-    }
-    .section-title {
+    /* Section Headers */
+    .section-header {
       text-align: center;
       margin-bottom: 48px;
     }
-    .section-title h2 {
+    .section-header h2 {
       font-size: 2.2rem;
       font-weight: 800;
       letter-spacing: -0.5px;
       margin-bottom: 12px;
     }
-    .section-title p {
+    .section-header p {
       color: var(--text-muted);
       font-size: 1.05rem;
     }
+
+    /* Features Grid */
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 24px;
+      margin-bottom: 80px;
     }
     .card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 32px;
-      transition: transform 0.2s, border-color 0.2s, background 0.2s;
+      transition: transform 0.2s, border-color 0.2s;
     }
     .card:hover {
       transform: translateY(-4px);
-      background: var(--bg-card-hover);
       border-color: var(--border-accent);
     }
     .card-icon {
@@ -316,42 +343,89 @@
       font-size: 0.95rem;
     }
 
-    /* Specs Table */
-    .specs-section {
+    /* Comparison Table Section */
+    .compare-section {
+      margin-bottom: 80px;
+    }
+    .table-wrapper {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 40px;
-      margin-bottom: 80px;
+      overflow-x: auto;
     }
-    .specs-title {
-      font-size: 1.5rem;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+    th, td {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.03);
       font-weight: 700;
-      margin-bottom: 24px;
-      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
+    th.highlight, td.highlight {
+      background: rgba(139, 92, 246, 0.08);
+      font-weight: 700;
+      color: #FFFFFF;
+      border-left: 1px solid rgba(139, 92, 246, 0.25);
+      border-right: 1px solid rgba(139, 92, 246, 0.25);
+    }
+    th.highlight {
+      color: var(--accent-glow);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .tag-yes {
+      color: var(--green);
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tag-no {
+      color: var(--red);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tag-partial {
+      color: var(--text-dim);
+    }
+
+    /* Specs Section */
     .specs-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 24px;
+      gap: 20px;
+      margin-bottom: 80px;
+    }
+    .spec-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
       text-align: center;
     }
-    .spec-item {
-      padding: 16px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-    }
     .spec-label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
+      font-size: 0.8rem;
+      color: var(--text-dim);
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
-    .spec-value {
+    .spec-val {
       font-size: 1.15rem;
-      font-weight: 700;
+      font-weight: 800;
       color: #FFFFFF;
     }
 
@@ -368,40 +442,47 @@
       justify-content: center;
       gap: 24px;
       margin-bottom: 20px;
+      flex-wrap: wrap;
     }
     .footer-links a:hover {
       color: #FFFFFF;
     }
     .disclaimer {
       font-size: 0.8rem;
-      color: #64748B;
+      color: var(--text-dim);
       max-width: 600px;
       margin: 12px auto 0;
     }
 
     @media (max-width: 768px) {
-      .hero { padding: 48px 0; }
+      .hero { padding: 48px 0 36px; }
       .grid { grid-template-columns: 1fr; }
       .nav-links { display: none; }
+      table { font-size: 0.85rem; }
+      th, td { padding: 12px 14px; }
     }
   </style>
 </head>
-<body>
-
-  <div class="nebula"></div>
+<body class="lang-en">
 
   <header>
     <div class="container nav">
       <div class="brand">
-        <img src="ender_eye.png" alt="Vega Launcher Logo">
+        <img src="ender_eye.png" alt="Vega Launcher Icon">
         <span>Vega Launcher</span>
       </div>
-      <nav class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#specs">Requirements</a>
-        <a href="https://github.com/Arcturus003/Vega-Launcher" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/Arcturus003/Vega-Launcher/releases" class="nav-btn" target="_blank" rel="noopener">Releases</a>
-      </nav>
+      <div class="nav-actions">
+        <nav class="nav-links">
+          <a href="#features" class="lang-en">Features</a>
+          <a href="#features" class="lang-tr">Özellikler</a>
+          <a href="#comparison" class="lang-en">Comparison</a>
+          <a href="#comparison" class="lang-tr">Karşılaştırma</a>
+          <a href="#specs" class="lang-en">Specs</a>
+          <a href="#specs" class="lang-tr">Gereksinimler</a>
+          <a href="https://github.com/Arcturus003/Vega-Launcher" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <button class="btn-lang" id="lang-toggle-btn" onclick="toggleLang()" title="Switch Language / Dili Değiştir">🌐 TR</button>
+      </div>
     </div>
   </header>
 
@@ -409,99 +490,249 @@
 
     <!-- Hero -->
     <section class="hero">
-      <div class="badge">
+      <div class="badge-pill">
         <span class="badge-dot"></span>
-        v2.0.0 Stable Release for Windows
+        <span class="lang-en">v2.0.0 Stable Release for Windows</span>
+        <span class="lang-tr">v2.0.0 Kararlı Windows Sürümü Yayında</span>
       </div>
+
       <h1>
-        Minecraft, <span class="gradient-text">Refined.</span>
+        <span class="lang-en">Minecraft, <span class="gradient-text">Refined.</span></span>
+        <span class="lang-tr">Minecraft, <span class="gradient-text">Sade & Güçlü.</span></span>
       </h1>
-      <p class="subtitle">
-        A fast, dark-themed Minecraft client with built-in Modrinth modpack browsing, automated Java runtime provisioning, and isolated profiles.
+
+      <p class="subtitle lang-en">
+        A fast, dark-themed Minecraft client with built-in Modrinth browsing, automated Java runtime setup, and isolated profiles for Windows.
+      </p>
+      <p class="subtitle lang-tr">
+        Dahili Modrinth tarayıcısı, otomatik Java kurulumu ve izole profil mimarisine sahip hızlı ve sade masaüstü Minecraft istemcisi.
       </p>
 
-      <div class="cta-group">
-        <a href="https://github.com/Arcturus003/Vega-Launcher/releases/latest" class="btn-primary" target="_blank" rel="noopener">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download for Windows
-        </a>
-        <a href="https://github.com/Arcturus003/Vega-Launcher" class="btn-secondary" target="_blank" rel="noopener">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-          View Source Code
-        </a>
+      <!-- Smart CTA Area -->
+      <div class="cta-container">
+        <div class="cta-buttons">
+          <a href="https://github.com/Arcturus003/Vega-Launcher/releases/latest" class="btn-primary" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span class="lang-en">Download for Windows (.exe)</span>
+            <span class="lang-tr">Windows İçin İndir (.exe)</span>
+          </a>
+          <a href="https://github.com/Arcturus003/Vega-Launcher" class="btn-secondary" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+            <span class="lang-en">View Source Code</span>
+            <span class="lang-tr">Kaynak Kodu İncele</span>
+          </a>
+        </div>
+        <div class="cta-meta">
+          <span>Windows 10 / 11 (64-bit)</span>
+          <span>•</span>
+          <span class="lang-en">Free &amp; Open Source</span>
+          <span class="lang-tr">Ücretsiz &amp; Açık Kaynak</span>
+          <span>•</span>
+          <a href="https://github.com/Arcturus003/Vega-Launcher/releases" target="_blank" rel="noopener">
+            <span class="lang-en">All Releases (GitHub)</span>
+            <span class="lang-tr">Tüm Sürümler (GitHub)</span>
+          </a>
+        </div>
       </div>
 
       <!-- Preview Image -->
-      <div class="preview-wrapper">
+      <div class="preview-container">
         <img src="social_preview.png" alt="Vega Launcher 2.5D Client Interface Showcase" width="1280" height="640">
       </div>
     </section>
 
-    <!-- Features -->
+    <!-- Features Section -->
     <section class="features-section" id="features">
-      <div class="section-title">
-        <h2>Built for Speed & Reliability</h2>
-        <p>Everything you need for clean Minecraft installations without setup friction.</p>
+      <div class="section-header">
+        <h2>
+          <span class="lang-en">Built for Speed &amp; Reliability</span>
+          <span class="lang-tr">Hız ve Güvenlik İçin Tasarlandı</span>
+        </h2>
+        <p class="lang-en">Everything you need for clean Minecraft installations without configuration friction.</p>
+        <p class="lang-tr">Ayar karmaşası olmadan temiz bir Minecraft deneyimi için gereken her şey tek yerde.</p>
       </div>
 
       <div class="grid">
         <div class="card">
           <div class="card-icon">⚡</div>
-          <h3>Native Modrinth Browser</h3>
-          <p>Search, filter, and install popular modpacks, individual mods, and shaderpacks directly inside the launcher without opening a web browser.</p>
+          <h3>
+            <span class="lang-en">Native Modrinth Browser</span>
+            <span class="lang-tr">Dahili Modrinth Tarayıcısı</span>
+          </h3>
+          <p class="lang-en">Search, filter, and install modpacks, mods, and shaders directly inside the client without opening a web browser.</p>
+          <p class="lang-tr">Tarayıcı açmadan doğrudan istemci içinden mod paketlerini, modları ve shaderları arayın ve tek tıkla kurun.</p>
         </div>
 
         <div class="card">
           <div class="card-icon">☕</div>
-          <h3>Zero-Friction Java Setup</h3>
-          <p>Vega Launcher detects version requirements (Java 8, 17, or 21) and downloads Mojang's official minimal JRE runtime automatically when needed.</p>
+          <h3>
+            <span class="lang-en">Automated Java Setup</span>
+            <span class="lang-tr">Otomatik Java Kurulumu</span>
+          </h3>
+          <p class="lang-en">Automatically detects loader version requirements (Java 8, 17, or 21) and downloads Mojang's official minimal JRE runtime.</p>
+          <p class="lang-tr">Seçtiğiniz sürümün ihtiyacını (Java 8, 17, 21) tespit ederek resmi Mojang mini-JRE çalışma zamanını otomatik kurar.</p>
         </div>
 
         <div class="card">
           <div class="card-icon">⚙️</div>
-          <h3>Multi-Loader Support</h3>
-          <p>First-class integration for Fabric, Quilt, Forge, and NeoForge mod loaders with instant RAM preset allocation (4 GB, 6 GB, 8 GB).</p>
+          <h3>
+            <span class="lang-en">Mod Loader Support</span>
+            <span class="lang-tr">Tam Yükleyici Desteği</span>
+          </h3>
+          <p class="lang-en">First-class integration for Fabric, Quilt, Forge, and NeoForge with 1-click RAM presets (4 GB, 6 GB, 8 GB).</p>
+          <p class="lang-tr">Fabric, Quilt, Forge ve NeoForge için doğrudan destek; hızlı tek tık RAM ayarları (4 GB, 6 GB, 8 GB).</p>
         </div>
 
         <div class="card">
           <div class="card-icon">📁</div>
-          <h3>Isolated Instances</h3>
-          <p>Each profile operates in its own dedicated directory. Your mod versions, world saves, resource packs, and configs never conflict.</p>
+          <h3>
+            <span class="lang-en">Isolated Profiles</span>
+            <span class="lang-tr">İzole Profil Mimarisi</span>
+          </h3>
+          <p class="lang-en">Each profile keeps its own worlds, mods, and configs separated in independent directories. Zero mod conflicts.</p>
+          <p class="lang-tr">Her profil kendi dünyalarını, modlarını ve ayarlarını bağımsız klasörde tutar. Mod çakışmalarını tamamen önler.</p>
         </div>
 
         <div class="card">
           <div class="card-icon">🛡️</div>
-          <h3>Windows DPAPI Security</h3>
-          <p>Genuine Microsoft OAuth session tokens are encrypted at-rest using native Windows Data Protection API (DPAPI) for maximum local security.</p>
+          <h3>
+            <span class="lang-en">Windows DPAPI Security</span>
+            <span class="lang-tr">Windows DPAPI Koruması</span>
+          </h3>
+          <p class="lang-en">Microsoft OAuth tokens are encrypted locally on disk using Windows Data Protection API (DPAPI). Passwords are never stored.</p>
+          <p class="lang-tr">Microsoft OAuth oturum jetonları Windows DPAPI ile yerel olarak şifrelenir. Şifreniz asla diskte düz metin tutulmaz.</p>
         </div>
 
         <div class="card">
           <div class="card-icon">🎨</div>
-          <h3>Obsidian Dark Aesthetics</h3>
-          <p>Sleek dark surfaces with 5 customizable accent themes (Electric Amethyst, Ender Pearl, Nether Crimson, Emerald Lush, Deep Dark) and procedural audio.</p>
+          <h3>
+            <span class="lang-en">Obsidian Dark Aesthetics</span>
+            <span class="lang-tr">Obsidyen Koyu Arayüz</span>
+          </h3>
+          <p class="lang-en">High-contrast obsidian surfaces with 5 selectable accent themes and real-time synthesized procedural audio feedback.</p>
+          <p class="lang-tr">Göz yormayan obsidyen yüzeyler, 5 farklı vurgu teması ve matematiksel frekans sentezli prosedürel ses efektleri.</p>
         </div>
       </div>
     </section>
 
-    <!-- Specs -->
+    <!-- Comparison Table Section -->
+    <section class="compare-section" id="comparison">
+      <div class="section-header">
+        <h2>
+          <span class="lang-en">How Vega Launcher Compares</span>
+          <span class="lang-tr">Vega Launcher Neden Farklı?</span>
+        </h2>
+        <p class="lang-en">Clean engineering and transparent security vs generic launchers.</p>
+        <p class="lang-tr">Temiz yazılım mimarisi ve şeffaf güvenlik standartları.</p>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th class="lang-en">Feature</th>
+              <th class="lang-tr">Özellik</th>
+              <th class="highlight">Vega Launcher</th>
+              <th class="lang-en">Vanilla Launcher</th>
+              <th class="lang-tr">Resmi Başlatıcı</th>
+              <th class="lang-en">Generic / Third-Party</th>
+              <th class="lang-tr">Diğer / Eski Başlatıcılar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="lang-en"><strong>Automatic Java Setup</strong></td>
+              <td class="lang-tr"><strong>Otomatik Java Kurulumu</strong></td>
+              <td class="highlight"><span class="tag-yes">✓ Official Mojang JRE</span></td>
+              <td><span class="tag-yes">✓ Yes (Vanilla only)</span></td>
+              <td><span class="tag-no">✗ Manual JDK required</span></td>
+            </tr>
+            <tr>
+              <td class="lang-en"><strong>Modrinth Mod Browser</strong></td>
+              <td class="lang-tr"><strong>Dahili Modrinth Tarayıcısı</strong></td>
+              <td class="highlight"><span class="tag-yes">✓ Native 1-Click</span></td>
+              <td><span class="tag-no">✗ None</span></td>
+              <td><span class="tag-partial">~ Partial or browser redirect</span></td>
+            </tr>
+            <tr>
+              <td class="lang-en"><strong>Token Storage Security</strong></td>
+              <td class="lang-tr"><strong>Oturum Jetonu Güvenliği</strong></td>
+              <td class="highlight"><span class="tag-yes">✓ Windows DPAPI Encrypted</span></td>
+              <td><span class="tag-partial">~ Plaintext JSON</span></td>
+              <td><span class="tag-no">✗ Plaintext / Remote telemetry</span></td>
+            </tr>
+            <tr>
+              <td class="lang-en"><strong>Profile &amp; Save Isolation</strong></td>
+              <td class="lang-tr"><strong>Profil &amp; Harita İzolasyonu</strong></td>
+              <td class="highlight"><span class="tag-yes">✓ Dedicated Folders</span></td>
+              <td><span class="tag-partial">~ Shared .minecraft folder</span></td>
+              <td><span class="tag-partial">~ Varies by client</span></td>
+            </tr>
+            <tr>
+              <td class="lang-en"><strong>Advertisements &amp; Trackers</strong></td>
+              <td class="lang-tr"><strong>Reklam ve Takip Kodu</strong></td>
+              <td class="highlight"><span class="tag-yes">✓ 100% Zero Ads</span></td>
+              <td><span class="tag-partial">~ Store promotional banners</span></td>
+              <td><span class="tag-no">✗ Adware &amp; sponsored links</span></td>
+            </tr>
+            <tr>
+              <td class="lang-en"><strong>Supported Loaders</strong></td>
+              <td class="lang-tr"><strong>Desteklenen Yükleyiciler</strong></td>
+              <td class="highlight"><span class="tag-yes">Fabric, Quilt, Forge, NeoForge</span></td>
+              <td><span class="tag-no">✗ Vanilla only</span></td>
+              <td><span class="tag-partial">~ Limited loaders</span></td>
+            </tr>
+            <tr>
+              <td class="lang-en"><strong>Open Source Code</strong></td>
+              <td class="lang-tr"><strong>Açık Kaynak Kod</strong></td>
+              <td class="highlight"><span class="tag-yes">✓ Fully Public on GitHub</span></td>
+              <td><span class="tag-no">✗ Closed Source</span></td>
+              <td><span class="tag-no">✗ Proprietary / Obfuscated</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Specs Section -->
     <section class="specs-section" id="specs">
-      <h3 class="specs-title">System Requirements</h3>
+      <div class="section-header">
+        <h2>
+          <span class="lang-en">System Requirements</span>
+          <span class="lang-tr">Sistem Gereksinimleri</span>
+        </h2>
+        <p class="lang-en">Lightweight footprint designed to run smoothly on modern Windows PCs.</p>
+        <p class="lang-tr">Modern Windows bilgisayarlarda yüksek performansla çalışacak şekilde optimize edilmiştir.</p>
+      </div>
+
       <div class="specs-grid">
-        <div class="spec-item">
-          <div class="spec-label">Operating System</div>
-          <div class="spec-value">Windows 10 / 11 (64-bit)</div>
+        <div class="spec-card">
+          <div class="spec-label">
+            <span class="lang-en">Operating System</span>
+            <span class="lang-tr">İşletim Sistemi</span>
+          </div>
+          <div class="spec-val">Windows 10 / 11</div>
         </div>
-        <div class="spec-item">
-          <div class="spec-label">Architecture</div>
-          <div class="spec-value">x86_64</div>
+        <div class="spec-card">
+          <div class="spec-label">
+            <span class="lang-en">Architecture</span>
+            <span class="lang-tr">Mimari</span>
+          </div>
+          <div class="spec-val">x86_64 (64-bit)</div>
         </div>
-        <div class="spec-item">
-          <div class="spec-label">System Memory</div>
-          <div class="spec-value">4 GB Min (8 GB Rec)</div>
+        <div class="spec-card">
+          <div class="spec-label">
+            <span class="lang-en">System Memory</span>
+            <span class="lang-tr">Bellek (RAM)</span>
+          </div>
+          <div class="spec-val">4 GB Min (8 GB Rec)</div>
         </div>
-        <div class="spec-item">
-          <div class="spec-label">Authentication</div>
-          <div class="spec-value">Microsoft Account</div>
+        <div class="spec-card">
+          <div class="spec-label">
+            <span class="lang-en">Authentication</span>
+            <span class="lang-tr">Kimlik Doğrulama</span>
+          </div>
+          <div class="spec-val">Microsoft Account</div>
         </div>
       </div>
     </section>
@@ -511,10 +742,10 @@
   <footer>
     <div class="container">
       <div class="footer-links">
-        <a href="https://github.com/Arcturus003/Vega-Launcher" target="_blank" rel="noopener">GitHub Repository</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/Arcturus003/Vega-Launcher/releases" target="_blank" rel="noopener">Releases</a>
-        <a href="https://github.com/Arcturus003/Vega-Launcher/issues" target="_blank" rel="noopener">Report an Issue</a>
-        <a href="https://github.com/Arcturus003/Vega-Launcher/blob/main/README_TR.md" target="_blank" rel="noopener">Türkçe Dokümantasyon</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/Arcturus003/Vega-Launcher/blob/main/README_TR.md" target="_blank" rel="noopener">Türkçe README</a>
       </div>
       <p>Vega Launcher &copy; 2026. Open source software developed by Arcturus.</p>
       <p class="disclaimer">
@@ -522,6 +753,28 @@
       </p>
     </div>
   </footer>
+
+  <script>
+    function toggleLang() {
+      const isTr = document.body.classList.contains('lang-tr');
+      const target = isTr ? 'en' : 'tr';
+      document.body.classList.remove('lang-en', 'lang-tr');
+      document.body.classList.add('lang-' + target);
+      document.documentElement.lang = target;
+      localStorage.setItem('vega_site_lang', target);
+      const btn = document.getElementById('lang-toggle-btn');
+      if (btn) btn.textContent = target === 'tr' ? '🌐 EN' : '🌐 TR';
+    }
+
+    (function() {
+      const saved = localStorage.getItem('vega_site_lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
+      document.body.classList.remove('lang-en', 'lang-tr');
+      document.body.classList.add('lang-' + saved);
+      document.documentElement.lang = saved;
+      const btn = document.getElementById('lang-toggle-btn');
+      if (btn) btn.textContent = saved === 'tr' ? '🌐 EN' : '🌐 TR';
+    })();
+  </script>
 
 </body>
 </html>
