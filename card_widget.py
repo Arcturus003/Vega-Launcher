@@ -138,7 +138,7 @@ class CardWidget(QFrame):
         en = self.lang == "en"
         self.setObjectName("ModpackCard")
         self.setMinimumWidth(210)
-        self.setFixedHeight(126)
+        self.setFixedHeight(132)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setCursor(Qt.PointingHandCursor)
         self.img_thread = None
@@ -178,20 +178,42 @@ class CardWidget(QFrame):
         title_box.setSpacing(2)
         title_box.setAlignment(Qt.AlignVCenter)
         
-        self.title = QLabel(data.get("title", "Untitled" if en else "İsimsiz"), self)
+        raw_title = data.get("title", "Untitled" if en else "İsimsiz") or ""
+        disp_title = raw_title
+        if len(disp_title) > 48:
+            disp_title = disp_title[:45].rsplit(" ", 1)[0] + "..."
+
+        self.title = QLabel(disp_title, self)
+        if raw_title != disp_title:
+            self.title.setToolTip(raw_title)
         self.title.setWindowFlags(Qt.Widget)
         self.title.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.title.setObjectName("CardTitle")
         self.title.setWordWrap(True)
-        self.title.setStyleSheet("font-size: 13px; font-weight: 700; color: #F8FAFC; background: transparent; border: none;")
-        self.title.setMaximumHeight(32)
+        self.title.setStyleSheet("""
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            color: #F8FAFC;
+            background: transparent;
+            border: none;
+            line-height: 1.25;
+        """)
+        self.title.setMaximumHeight(36)
         title_box.addWidget(self.title)
         
         author = data.get("author") or ""
         self.author_lbl = QLabel(f"by {author}" if author else "", self)
         self.author_lbl.setWindowFlags(Qt.Widget)
         self.author_lbl.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self.author_lbl.setStyleSheet("font-size: 11px; color: #94A3B8; font-weight: 500; background: transparent; border: none;")
+        self.author_lbl.setStyleSheet("""
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            color: #94A3B8;
+            font-weight: 500;
+            background: transparent;
+            border: none;
+        """)
         self.author_lbl.setVisible(bool(author))
         title_box.addWidget(self.author_lbl)
         
@@ -207,7 +229,7 @@ class CardWidget(QFrame):
         self.version.setStyleSheet("background: rgba(139, 92, 246, 0.18); color: #C084FC; border: 1px solid rgba(139, 92, 246, 0.32); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;")
         self.version.setAlignment(Qt.AlignCenter)
         header_layout.addWidget(self.version)
-        
+
         self.update_btn = QPushButton("Update" if en else "Güncelle", self)
         self.update_btn.setWindowFlags(Qt.Widget)
         self.update_btn.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F59E0B, stop:1 #D97706); color: white; font-weight: 700; border: none; border-radius: 4px; padding: 2px 6px; font-size: 10px;")
@@ -273,6 +295,21 @@ class CardWidget(QFrame):
             stats_row.addWidget(self.cat_pill)
 
         stats_row.addStretch()
+        source = (data.get("source") or "modrinth").lower()
+        if source == "curseforge":
+            self.source_badge = QLabel("CurseForge", self)
+            self.source_badge.setWindowFlags(Qt.Widget)
+            self.source_badge.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            self.source_badge.setStyleSheet("background: rgba(249, 115, 22, 0.16); color: #FB923C; border: 1px solid rgba(249, 115, 22, 0.35); border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700;")
+            self.source_badge.setAlignment(Qt.AlignCenter)
+            stats_row.addWidget(self.source_badge)
+        elif source == "modrinth":
+            self.source_badge = QLabel("Modrinth", self)
+            self.source_badge.setWindowFlags(Qt.Widget)
+            self.source_badge.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            self.source_badge.setStyleSheet("background: rgba(16, 185, 129, 0.16); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700;")
+            self.source_badge.setAlignment(Qt.AlignCenter)
+            stats_row.addWidget(self.source_badge)
         layout.addLayout(stats_row)
         
         # Load Icon
@@ -429,13 +466,11 @@ class CardWidget(QFrame):
                 if th.isRunning():
                     th.quit()
                     th.wait(500)
-                    if th.isRunning():
-                        th.terminate()
-                        th.wait(200)
             except Exception:
                 pass
         cls._active_threads.clear()
 
     def mousePressEvent(self, event):
-        self.clicked.emit(self.data)
+        if event.button() == Qt.LeftButton and not getattr(self, "is_selected", False):
+            self.clicked.emit(self.data)
         super().mousePressEvent(event)

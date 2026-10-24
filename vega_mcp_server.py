@@ -92,50 +92,15 @@ def _list_content_files(directory: str, extensions: tuple[str, ...] = (".jar", "
 
 
 def _read_server_properties(prop_path: str) -> dict[str, str]:
-    props: dict[str, str] = {}
-    if not os.path.isfile(prop_path):
-        return props
-    try:
-        with open(prop_path, "r", encoding="utf-8", errors="replace") as f:
-            for raw_line in f:
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                props[k.strip()] = v.strip()
-    except Exception:
-        pass
-    return props
+    from server_instance import ServerInstance
+    server_dir = os.path.dirname(os.path.abspath(prop_path))
+    return ServerInstance(server_dir).read_raw_properties()
 
 
 def _write_server_properties(prop_path: str, updates: dict[str, Any]) -> dict[str, str]:
-    lines: list[str] = []
-    existing_keys: set[str] = set()
-    if os.path.isfile(prop_path):
-        with open(prop_path, "r", encoding="utf-8", errors="replace") as f:
-            for raw_line in f:
-                stripped = raw_line.strip()
-                if stripped and not stripped.startswith("#") and "=" in stripped:
-                    k, _ = stripped.split("=", 1)
-                    key = k.strip()
-                    if key in updates:
-                        lines.append(f"{key}={updates[key]}\n")
-                        existing_keys.add(key)
-                    else:
-                        lines.append(raw_line if raw_line.endswith("\n") else raw_line + "\n")
-                else:
-                    lines.append(raw_line if raw_line.endswith("\n") else raw_line + "\n")
-
-    for k, v in updates.items():
-        if k not in existing_keys:
-            lines.append(f"{k}={v}\n")
-
-    os.makedirs(os.path.dirname(os.path.abspath(prop_path)), exist_ok=True)
-    tmp_path = f"{prop_path}.tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-    os.replace(tmp_path, prop_path)
-    return _read_server_properties(prop_path)
+    from server_instance import ServerInstance
+    server_dir = os.path.dirname(os.path.abspath(prop_path))
+    return ServerInstance(server_dir).update_raw_properties(updates)
 
 
 class VegaMCPService:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+from datetime import datetime, timezone
 import json
 import os
 import shutil
@@ -10,10 +12,15 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from auth_window import needs_rebind_token, protect_token, unprotect_token
+from auth_vault import AuthenticationVault
+
+protect_token = AuthenticationVault.encrypt_secret
+unprotect_token = AuthenticationVault.decrypt_secret
+needs_rebind_token = AuthenticationVault.needs_rebind
 
 
 DEFAULT_SETTINGS: dict[str, Any] = {
+
     "language": "tr",
     "window_size": "auto",
     "last_width": 1350,
@@ -216,18 +223,34 @@ class ProfileAndConfigStore:
             for k in keys_to_remove:
                 del data["profiles"][k]
 
+            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
             for pid, pdata in (profiles or {}).items():
                 if not isinstance(pdata, dict):
                     continue
                 profile_key = f"vega_{pid}"
                 ram_val = pdata.get("ram") or 4096
-                data["profiles"][profile_key] = {
+                profile_entry: dict[str, Any] = {
                     "name": f"[Vega] {pdata.get('name') or 'Unknown'}",
-                    "lastVersionId": pdata.get("version_id") or pdata.get("version") or "",
+                    "lastVersionId": pdata.get("version") or pdata.get("version_id") or "",
                     "gameDir": pdata.get("path") or "",
-                    "javaArgs": f"-Xmx{ram_val}m -Xms512m",
+                    "javaArgs": f"-Xmx{ram_val}m -Xms512m -Duser.language=en -Duser.country=US",
                     "type": "custom",
+                    "created": now_str,
+                    "lastUsed": now_str,
                 }
+                p_path = pdata.get("path")
+                if p_path:
+                    icon_png = os.path.join(p_path, "icon.png")
+                    if os.path.isfile(icon_png):
+                        try:
+                            with open(icon_png, "rb") as img_f:
+                                b64_img = base64.b64encode(img_f.read()).decode("utf-8")
+                                profile_entry["icon"] = f"data:image/png;base64,{b64_img}"
+                        except Exception:
+                            pass
+
+                data["profiles"][profile_key] = profile_entry
 
             temp_path = file_path + ".tmp"
             try:
@@ -300,7 +323,7 @@ class ProfileAndConfigStore:
         if os.path.exists(real_target) and os.name == "nt":
             try:
                 subprocess.run(
-                    ["cmd.exe", "/c", "rd", "/s", "/q", f'"{real_target}"'],
+                    ["cmd.exe", "/c", "rd", "/s", "/q", real_target],
                     check=False,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
@@ -424,3 +447,371 @@ class ProfileAndConfigStore:
                 if client_path and os.path.exists(client_path):
                     return p
         return None
+
+    @staticmethod
+    def validate_profile_invariants(pdata: dict) -> tuple[bool, str]:
+        """Validate profile dictionary invariants (non-empty name, RAM in 512..131072 MB)."""
+        if not isinstance(pdata, dict):
+            return False, "Profile data must be a dictionary"
+        name = str(pdata.get("name") or "").strip()
+        if not name:
+            return False, "Profile name cannot be empty"
+        ram = pdata.get("ram", 4096)
+        try:
+            ram_val = int(ram)
+            if ram_val < 512 or ram_val > 131072:
+                return False, f"Invalid RAM allocation: {ram_val} MB"
+        except (ValueError, TypeError):
+            return False, "RAM allocation must be an integer"
+        return True, ""
+
+    def create_profile(
+        self,
+        profiles: dict[str, dict],
+        profile_id: str,
+        profile_data: dict,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = True,
+    ) -> bool:
+        """Validate and register a new profile in `profiles`, persisting atomically."""
+        if not isinstance(profiles, dict) or not profile_id or not isinstance(profile_id, str) or not profile_id.strip():
+            return False
+        is_valid, _err = self.validate_profile_invariants(profile_data)
+        if not is_valid:
+            return False
+        profiles[profile_id] = dict(profile_data)
+        self.save(
+            profiles,
+            ms_login or {},
+            settings or {},
+            sync_standard=sync_standard,
+        )
+        return True
+
+    def update_profile(
+        self,
+        profiles: dict[str, dict],
+        profile_id: str,
+        updates: dict,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = True,
+    ) -> bool:
+        """Apply `updates` to `profiles[profile_id]` with invariant validation and atomic persistence."""
+        if not isinstance(profiles, dict) or profile_id not in profiles or not isinstance(updates, dict):
+            return False
+        candidate = dict(profiles[profile_id])
+        candidate.update(updates)
+        is_valid, _err = self.validate_profile_invariants(candidate)
+        if not is_valid:
+            return False
+        profiles[profile_id] = candidate
+        self.save(
+            profiles,
+            ms_login or {},
+            settings or {},
+            sync_standard=sync_standard,
+        )
+        return True
+
+    def update_runtime(
+        self,
+        profiles: dict[str, dict],
+        profile_id: str,
+        version: str,
+        loader: str,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = True,
+    ) -> bool:
+        """Update a profile's runtime version and loader with atomic persistence."""
+        return self.update_profile(
+            profiles,
+            profile_id,
+            {"version": version, "loader": str(loader).lower()},
+            ms_login=ms_login,
+            settings=settings,
+            sync_standard=sync_standard,
+        )
+
+    def add_playtime(
+        self,
+        profiles: dict[str, dict],
+        profile_id: str,
+        seconds: int,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> int:
+        """Increment playtime (seconds) for `profile_id` and persist atomically."""
+        if not isinstance(profiles, dict) or profile_id not in profiles or seconds <= 0:
+            return 0
+        cur = int(profiles[profile_id].get("playtime", 0) or 0)
+        new_total = cur + int(seconds)
+        self.update_profile(
+            profiles,
+            profile_id,
+            {"playtime": new_total},
+            ms_login=ms_login,
+            settings=settings,
+            sync_standard=sync_standard,
+        )
+        return new_total
+
+    def delete_profile(
+        self,
+        profiles: dict[str, dict],
+        profile_id: str,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = True,
+        delete_files: bool = False,
+    ) -> bool:
+        """Delete `profile_id` from `profiles` (optionally removing its contained directory) and persist."""
+        if not isinstance(profiles, dict) or profile_id not in profiles:
+            return False
+        pdata = profiles.get(profile_id, {})
+        p_path = pdata.get("path", "") if isinstance(pdata, dict) else ""
+        if delete_files and p_path:
+            ok, _reason = self.delete_profile_directory(p_path)
+            if not ok and _reason not in ("", "outside_containment"):
+                return False
+        del profiles[profile_id]
+        self.save(
+            profiles,
+            ms_login or {},
+            settings or {},
+            sync_standard=sync_standard,
+        )
+        return True
+
+
+class _SignalStub:
+    """Lightweight pure-Python signal compatible with `.connect()`, `.disconnect()`, and `.emit()`."""
+
+    def __init__(self) -> None:
+        self._callbacks: list[Callable[..., Any]] = []
+
+    def connect(self, callback: Callable[..., Any]) -> None:
+        if callable(callback) and callback not in self._callbacks:
+            self._callbacks.append(callback)
+
+    def disconnect(self, callback: Optional[Callable[..., Any]] = None) -> None:
+        if callback is None:
+            self._callbacks.clear()
+        elif callback in self._callbacks:
+            self._callbacks.remove(callback)
+
+    def emit(self, *args: Any, **kwargs: Any) -> None:
+        for cb in list(self._callbacks):
+            cb(*args, **kwargs)
+
+
+class ProfileSessionManager:
+    """
+    Pure-Python compatibility facade over `ProfileAndConfigStore` for callers that
+    hold an in-memory `profiles` dictionary and active profile selection.
+    """
+
+    def __init__(
+        self,
+        store: Optional[ProfileAndConfigStore] = None,
+        profiles: Optional[dict[str, dict]] = None,
+        parent: Any = None,
+    ):
+        self.store = store
+        self.profiles: dict[str, dict] = profiles if profiles is not None else {}
+        self.active_profile_id: Optional[str] = None
+        self.profile_selected = _SignalStub()
+        self.profile_updated = _SignalStub()
+
+    def set_profiles(self, profiles: dict[str, dict]) -> None:
+        self.profiles = profiles
+
+    def select_profile(self, profile_id: Optional[str]) -> tuple[Optional[str], Optional[dict]]:
+        if not profile_id or profile_id not in self.profiles:
+            self.active_profile_id = None
+            self.profile_selected.emit("", {})
+            return None, None
+        self.active_profile_id = profile_id
+        pdata = self.profiles[profile_id]
+        self.profile_selected.emit(profile_id, pdata)
+        return profile_id, pdata
+
+    def get_active_profile(self) -> tuple[Optional[str], Optional[dict]]:
+        if not self.active_profile_id or self.active_profile_id not in self.profiles:
+            return None, None
+        return self.active_profile_id, self.profiles[self.active_profile_id]
+
+    def validate_profile_invariants(self, pdata: dict) -> tuple[bool, str]:
+        return ProfileAndConfigStore.validate_profile_invariants(pdata)
+
+    def update_profile(
+        self,
+        profile_id: str,
+        updates: dict,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> bool:
+        if self.store is not None:
+            ok = self.store.update_profile(
+                self.profiles,
+                profile_id,
+                updates,
+                ms_login=ms_login,
+                settings=settings,
+                sync_standard=sync_standard,
+            )
+        else:
+            if profile_id not in self.profiles:
+                return False
+            candidate = dict(self.profiles[profile_id])
+            candidate.update(updates)
+            ok, _ = self.validate_profile_invariants(candidate)
+            if not ok:
+                return False
+            self.profiles[profile_id] = candidate
+        if ok:
+            self.profile_updated.emit(profile_id, self.profiles[profile_id])
+        return ok
+
+    def update_runtime(
+        self,
+        profile_id: str,
+        version: str,
+        loader: str,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> bool:
+        return self.update_profile(
+            profile_id,
+            {"version": version, "loader": str(loader).lower()},
+            ms_login=ms_login,
+            settings=settings,
+            sync_standard=sync_standard,
+        )
+
+    def add_playtime(
+        self,
+        profile_id: str,
+        seconds: int,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> int:
+        if self.store is not None:
+            new_total = self.store.add_playtime(
+                self.profiles,
+                profile_id,
+                seconds,
+                ms_login=ms_login,
+                settings=settings,
+                sync_standard=sync_standard,
+            )
+            if new_total > 0 and profile_id in self.profiles:
+                self.profile_updated.emit(profile_id, self.profiles[profile_id])
+            return new_total
+        if profile_id not in self.profiles or seconds <= 0:
+            return 0
+        cur = int(self.profiles[profile_id].get("playtime", 0) or 0)
+        new_total = cur + seconds
+        self.update_profile(
+            profile_id,
+            {"playtime": new_total},
+            ms_login=ms_login,
+            settings=settings,
+            sync_standard=sync_standard,
+        )
+        return new_total
+
+    def save(
+        self,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> None:
+        """Atomically persists profiles and configuration via the underlying store."""
+        if self.store:
+            self.store.save(
+                self.profiles,
+                ms_login or {},
+                settings or {},
+                sync_standard=sync_standard,
+            )
+
+    def update_profile_field(
+        self,
+        profile_id: str,
+        field: str,
+        value: Any,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> bool:
+        """Mutates a single profile field with invariant validation and persistence."""
+        return self.update_profile(
+            profile_id,
+            {field: value},
+            ms_login=ms_login,
+            settings=settings,
+            sync_standard=sync_standard,
+        )
+
+    def create_profile(
+        self,
+        profile_id: str,
+        profile_data: dict,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> bool:
+        """Registers a new profile with invariant validation, persistence, and signaling."""
+        if self.store is not None:
+            ok = self.store.create_profile(
+                self.profiles,
+                profile_id,
+                profile_data,
+                ms_login=ms_login,
+                settings=settings,
+                sync_standard=sync_standard,
+            )
+        else:
+            if not profile_id or not isinstance(profile_id, str) or not profile_id.strip():
+                return False
+            ok, _ = self.validate_profile_invariants(profile_data)
+            if not ok:
+                return False
+            self.profiles[profile_id] = dict(profile_data)
+        if ok:
+            self.profile_updated.emit(profile_id, self.profiles[profile_id])
+        return ok
+
+    def delete_profile(
+        self,
+        profile_id: str,
+        ms_login: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        sync_standard: bool = False,
+    ) -> bool:
+        """Deletes a profile, clearing selection if active, and persists changes."""
+        if self.store is not None:
+            ok = self.store.delete_profile(
+                self.profiles,
+                profile_id,
+                ms_login=ms_login,
+                settings=settings,
+                sync_standard=sync_standard,
+            )
+        else:
+            if profile_id not in self.profiles:
+                return False
+            del self.profiles[profile_id]
+            ok = True
+        if ok and self.active_profile_id == profile_id:
+            self.active_profile_id = None
+            self.profile_selected.emit("", {})
+        return ok
+

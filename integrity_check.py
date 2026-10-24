@@ -34,7 +34,13 @@ FILES_TO_CHECK = [
     "launch_pipeline.py",
     "server_console_parser.py",
     "auth_vault.py",
-    "server_process_coordinator.py"
+    "server_process_coordinator.py",
+    "prism_meta_provider.py",
+    "prism_instance_importer.py",
+    "curseforge_api.py",
+    "crash_analyzer.py",
+    "java_provisioner.py",
+    "content_browser.py"
 ]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

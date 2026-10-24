@@ -26,12 +26,6 @@ from server_downloader import ServerSoftwareDialog
 from sound_manager import SoundManager
 from server_console_parser import ServerConsoleParser, ConsoleEvent
 from server_process_coordinator import ServerProcessCoordinator, ServerState
-from auth_window import protect_token, unprotect_token
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 
 def get_base_dir():
     appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
@@ -99,34 +93,34 @@ class BackupThread(QThread):
         
     def run(self):
         en = self.lang == "en"
-        server_was_running = False
+        coord = self.coordinator
+        if coord is None and self.server_thread is not None:
+            coord = getattr(self.server_thread, "coordinator", None) or ServerProcessCoordinator()
+            if coord._thread is not self.server_thread:
+                coord.attach_thread(self.server_thread)
+        elif coord is not None and self.server_thread is not None and coord._thread is not self.server_thread:
+            coord.attach_thread(self.server_thread)
+
+        quiesce_cm = None
 
         def _before():
-            nonlocal server_was_running
-            if self.server_thread and (self.server_thread.isRunning() or getattr(self.server_thread, 'is_running', False)):
-                server_was_running = True
+            nonlocal quiesce_cm
+            if coord and coord.is_running():
                 self.stage_update.emit(
                     "Saving server world (save-off / save-all)..."
                     if en else
                     "Sunucu dünyası kaydediliyor (save-off / save-all)..."
                 )
-                self.server_thread.send_command("save-off")
-                self.server_thread.send_command("save-all flush")
-                import time
-                start_t = time.time()
-                while time.time() - start_t < 3.0:
-                    time.sleep(0.1)
-                    log_history = []
-                    if self.coordinator and hasattr(self.coordinator, "parser"):
-                        log_history = self.coordinator.parser.history[-10:]
-                    elif self.server_thread:
-                        log_history = getattr(self.server_thread, "_log_history", [])[-10:] or getattr(self.server_thread, "log_history", [])[-10:]
-                    if any("saved the game" in str(l).lower() or "all dimensions are saved" in str(l).lower() or "all chunks are saved" in str(l).lower() for l in log_history):
-                        break
+                quiesce_cm = coord.quiesce_for_backup(flush_timeout_sec=3.0)
+                quiesce_cm.__enter__()
 
         def _after():
-            if server_was_running and self.server_thread and (self.server_thread.isRunning() or getattr(self.server_thread, 'is_running', False)):
-                self.server_thread.send_command("save-on")
+            nonlocal quiesce_cm
+            if quiesce_cm is not None:
+                try:
+                    quiesce_cm.__exit__(None, None, None)
+                finally:
+                    quiesce_cm = None
 
         adapter = self.cloud_adapter or GoogleDriveBackupAdapter(
             base_dir=get_base_dir(),
@@ -143,6 +137,7 @@ class BackupThread(QThread):
             lang=self.lang,
         )
         self.backup_finished.emit(ok, msg)
+
 
 class RestoreThread(QThread):
     restore_finished = Signal(bool, str)
@@ -1069,6 +1064,17 @@ class ServerWidget(QWidget):
         if app:
             app.aboutToQuit.connect(self.cleanup)
 
+    def is_running(self) -> bool:
+        th = getattr(self, "server_thread", None)
+        if not th:
+            return False
+        proc = getattr(th, "process", None)
+        return bool(
+            th.isRunning()
+            or getattr(th, "is_running", False)
+            or (proc and hasattr(proc, "poll") and proc.poll() is None)
+        )
+
     def set_theme(self, theme_key: str):
         self._active_theme = theme_key
         try:
@@ -1236,7 +1242,14 @@ class ServerWidget(QWidget):
     def cleanup(self):
         if hasattr(self, '_stop_watchdog_timer') and self._stop_watchdog_timer.isActive():
             self._stop_watchdog_timer.stop()
-        self.force_kill_server()
+        if self.server_thread and (self.server_thread.isRunning() or getattr(self.server_thread, 'is_running', False)):
+            try:
+                # Non-blocking / fast 1.0s grace period during app shutdown to prevent UI thread freeze
+                self.server_thread.terminate_process(timeout=1.0)
+            except Exception:
+                self.force_kill_server()
+        else:
+            self.force_kill_server()
         if hasattr(self, '_fs_watcher'):
             paths = self._fs_watcher.directories() + self._fs_watcher.files()
             if paths:
@@ -1247,38 +1260,23 @@ class ServerWidget(QWidget):
             for th in list(self._api_threads):
                 try:
                     if th.isRunning():
+                        if hasattr(th, 'cancel'):
+                            th.cancel()
                         th.quit()
                         th.wait(1000)
-                        if th.isRunning():
-                            th.terminate()
-                            th.wait(500)
                 except Exception:
                     pass
             self._api_threads.clear()
 
     def force_kill_server(self):
-        if self.server_thread:
-            if hasattr(self.server_thread, 'kill_process_tree'):
-                self.server_thread.kill_process_tree()
-            elif self.server_thread.process:
-                try:
-                    import subprocess
-                    import os
-                    if os.name == 'nt':
-                        subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.server_thread.process.pid)], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                    else:
-                        self.server_thread.process.kill()
-                    self.server_thread.process.wait(timeout=2)
-                except Exception:
-                    pass
-            if self.server_thread.isRunning():
-                self.server_thread.wait(2000)
-                if self.server_thread.isRunning():
-                    try:
-                        self.server_thread.terminate()
-                        self.server_thread.wait(500)
-                    except Exception:
-                        pass
+        if not hasattr(self, "process_coordinator"):
+            self.process_coordinator = ServerProcessCoordinator(parser=getattr(self, "console_parser", None))
+        if self.server_thread and self.process_coordinator._thread is not self.server_thread:
+            self.process_coordinator.attach_thread(self.server_thread)
+        self.process_coordinator.force_kill()
+        if self.server_thread and self.server_thread.isRunning():
+            self.server_thread.wait(2000)
+
                 
     def delete_server(self):
         en = getattr(self, "lang", "tr") == "en"
@@ -1652,6 +1650,8 @@ class ServerWidget(QWidget):
             self._api_threads = []
             
         configured_java = (self._get_profile_store().get_setting("java_path", "") or "").strip() or None
+        if not hasattr(self, 'process_coordinator'):
+            self.process_coordinator = ServerProcessCoordinator(parser=self.console_parser)
         self.server_thread = MinecraftServerThread(
             server_dir=self.server_dir,
             ram_gb=self.ram_spinbox.value(),
@@ -1659,10 +1659,9 @@ class ServerWidget(QWidget):
             java_path=configured_java,
             parent=None,
             lang=getattr(self, "lang", "tr"),
+            coordinator=self.process_coordinator,
         )
         self._api_threads.append(self.server_thread)
-        if not hasattr(self, 'process_coordinator'):
-            self.process_coordinator = ServerProcessCoordinator(parser=self.console_parser)
         self.process_coordinator.attach_thread(self.server_thread)
         
         self.server_thread.log_ready.connect(self.log)
@@ -1684,6 +1683,10 @@ class ServerWidget(QWidget):
         en = getattr(self, "lang", "tr") == "en"
         self._user_stopped = True
         if self.server_thread and self.server_thread.is_running:
+            if not hasattr(self, "process_coordinator"):
+                self.process_coordinator = ServerProcessCoordinator(parser=getattr(self, "console_parser", None))
+            if self.process_coordinator._thread is not self.server_thread:
+                self.process_coordinator.attach_thread(self.server_thread)
             try:
                 from sound_manager import SoundManager
                 SoundManager.get_instance().play_beacon_deactivate()
@@ -1701,7 +1704,7 @@ class ServerWidget(QWidget):
                 self.lbl_server_status.setStyleSheet("font-size: 16px; font-weight: bold; color: #DAA520; margin-top: 10px; margin-bottom: 10px;")
             self.btn_stop.setEnabled(False)
             self.btn_stop.setText("Stopping..." if en else "Kapatılıyor...")
-            self.server_thread.stop_server()
+            self.process_coordinator.stop(timeout_sec=10.0)
             self._start_stop_watchdog(timeout_ms=10000)
             from PySide6.QtCore import QTimer
             QTimer.singleShot(3000, self._arm_force_stop)
@@ -1740,7 +1743,11 @@ class ServerWidget(QWidget):
     def send_command(self):
         cmd = self.cmd_input.text().strip()
         if cmd and self.server_thread and self.server_thread.is_running:
-            self.server_thread.send_command(cmd)
+            if not hasattr(self, "process_coordinator"):
+                self.process_coordinator = ServerProcessCoordinator(parser=getattr(self, "console_parser", None))
+            if self.process_coordinator._thread is not self.server_thread:
+                self.process_coordinator.attach_thread(self.server_thread)
+            self.process_coordinator.send_command(cmd)
             self.cmd_input.clear()
 
     def send_mini_command(self):
@@ -1748,8 +1755,13 @@ class ServerWidget(QWidget):
             return
         cmd = self.mini_cmd_input.text().strip()
         if cmd and self.server_thread and self.server_thread.is_running:
-            self.server_thread.send_command(cmd)
+            if not hasattr(self, "process_coordinator"):
+                self.process_coordinator = ServerProcessCoordinator(parser=getattr(self, "console_parser", None))
+            if self.process_coordinator._thread is not self.server_thread:
+                self.process_coordinator.attach_thread(self.server_thread)
+            self.process_coordinator.send_command(cmd)
             self.mini_cmd_input.clear()
+
 
     def on_server_stopped(self):
         if hasattr(self, '_stop_watchdog_timer') and self._stop_watchdog_timer.isActive():
@@ -1796,25 +1808,16 @@ class ServerWidget(QWidget):
             self.online_players = set()
             
         self.player_list.clear()
-        
-        # 1. Load known players from usercache.json
-        known_players = self._get_server_instance().list_known_players() if self.server_dir else set()
-                
-        # 2. Add online players first
+        inst = self._get_server_instance() if self.server_dir else None
+        statuses = inst.get_player_statuses(getattr(self, "online_players", set())) if inst else []
+
         online_tag = "Online" if en else "Çevrimiçi"
         offline_tag = "Offline" if en else "Çevrimdışı"
-        for name in sorted(list(self.online_players)):
-            item = QListWidgetItem(f"[{online_tag}] {name}")
-            item.setData(Qt.UserRole, name)
-            item.setForeground(QColor("#2E8B57"))  # Green
-            known_players.discard(name)
-            self.player_list.addItem(item)
-            
-        # 3. Add offline players
-        for name in sorted(list(known_players)):
-            item = QListWidgetItem(f"[{offline_tag}] {name}")
-            item.setData(Qt.UserRole, name)
-            item.setForeground(QColor("#AAAAAA"))  # Gray
+        for st in statuses:
+            tag = online_tag if st.online else offline_tag
+            item = QListWidgetItem(f"[{tag}] {st.name}")
+            item.setData(Qt.UserRole, st.name)
+            item.setForeground(QColor("#2E8B57") if st.online else QColor("#AAAAAA"))
             self.player_list.addItem(item)
             
         # Update header
@@ -1938,7 +1941,9 @@ class ServerWidget(QWidget):
     def open_server_folder(self):
         en = getattr(self, "lang", "tr") == "en"
         if self.server_dir and os.path.exists(self.server_dir):
-            os.startfile(self.server_dir)
+            from ui_components import safe_open_path
+            if not safe_open_path(self.server_dir):
+                return
             self.log(
                 "[INFO] Server folder opened. You can drag mods into 'mods' and plugins into 'plugins'."
                 if en else
@@ -2118,6 +2123,7 @@ class ServerWidget(QWidget):
 
     def load_server_properties(self):
         props = self._get_server_instance().read_properties() if self.server_dir else ServerProperties()
+        self._last_saved_props = None
         self.spin_max_players.setValue(props.max_players)
         self.spin_view_distance.setValue(props.view_distance)
         idx_diff = self.combo_difficulty.findText(props.difficulty)
@@ -2158,7 +2164,14 @@ class ServerWidget(QWidget):
             simulation_distance=self.spin_sim_distance.value(),
             server_port=current.server_port,
         )
+        if (
+            getattr(self, "_last_saved_props", None) == (self.server_dir, props)
+            and props == current
+            and os.path.exists(os.path.join(self.server_dir, "server.properties"))
+        ):
+            return
         inst.write_properties(props)
+        self._last_saved_props = (self.server_dir, props)
         self.log("[INFO] Settings saved." if en else "[BİLGİ] Ayarlar kaydedildi.")
         self.update_dashboard_cards()
 

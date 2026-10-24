@@ -33,8 +33,14 @@ class ServerProcessCoordinator:
         self._thread: Any = None
         self._on_state_change: Optional[Callable[[ServerState], None]] = None
         self._on_log_line: Optional[Callable[[str], None]] = None
+        self._on_event: Optional[Callable[[ConsoleEvent], None]] = None
         self._stop_requested_time: Optional[float] = None
         self._shutdown_grace_period: float = 10.0
+        self.online_players: set[str] = set()
+        self.detected_tunnel: Optional[str] = None
+        self.playit_ip: Optional[str] = None
+        self.claimed_urls: list[str] = []
+        self.world_saved_count: int = 0
 
     @property
     def state(self) -> ServerState:
@@ -45,6 +51,9 @@ class ServerProcessCoordinator:
 
     def set_log_callback(self, cb: Callable[[str], None]) -> None:
         self._on_log_line = cb
+
+    def set_event_callback(self, cb: Callable[[ConsoleEvent], None]) -> None:
+        self._on_event = cb
 
     def _set_state(self, new_state: ServerState) -> None:
         if self._state != new_state:
@@ -58,6 +67,12 @@ class ServerProcessCoordinator:
     def attach_thread(self, server_thread: Any) -> None:
         """Attach a MinecraftServerThread instance to coordinate."""
         self._thread = server_thread
+        self.online_players.clear()
+        self.detected_tunnel = None
+        self.playit_ip = None
+        self.claimed_urls.clear()
+        self.world_saved_count = 0
+        self.parser.reset()
         if server_thread:
             self._set_state(ServerState.STARTING)
 
@@ -78,16 +93,35 @@ class ServerProcessCoordinator:
             return False
 
     def handle_stdout_line(self, line: str) -> list[ConsoleEvent]:
-        """Feed a stdout line through the parser and update lifecycle state machine."""
+        """Feed a stdout line through the parser and update lifecycle state machine for all 8 ConsoleEvent types."""
         events = self.parser.feed_line(line)
         for ev in events:
             if ev.event_type == "online":
                 self._set_state(ServerState.RUNNING)
             elif ev.event_type == "stopping":
                 self._set_state(ServerState.STOPPING)
-            elif ev.event_type == "world_saved" and self._state == ServerState.STOPPING:
-                # World flush complete: accelerate shutdown grace
-                self._shutdown_grace_period = 3.0
+            elif ev.event_type == "world_saved":
+                self.world_saved_count += 1
+                if self._state == ServerState.STOPPING:
+                    # World flush complete: accelerate shutdown grace
+                    self._shutdown_grace_period = 3.0
+            elif ev.event_type == "player_joined" and ev.data:
+                self.online_players.add(ev.data)
+            elif ev.event_type == "player_left" and ev.data:
+                self.online_players.discard(ev.data)
+            elif ev.event_type == "tunnel_detected" and ev.data:
+                self.detected_tunnel = ev.data
+            elif ev.event_type == "claim_url" and ev.data:
+                if ev.data not in self.claimed_urls:
+                    self.claimed_urls.append(ev.data)
+            elif ev.event_type == "playit_ip" and ev.data:
+                self.playit_ip = ev.data
+
+            if self._on_event:
+                try:
+                    self._on_event(ev)
+                except Exception:
+                    pass
 
         if self._on_log_line:
             try:
@@ -132,6 +166,7 @@ class ServerProcessCoordinator:
             self._set_state(ServerState.CRASHED)
         else:
             self._set_state(ServerState.STOPPED)
+        self.online_players.clear()
         self._thread = None
 
     @contextmanager
@@ -144,17 +179,24 @@ class ServerProcessCoordinator:
         - Automatically restores 'save-on' in the finally block
         """
         was_running = self.is_running()
+        baseline_saved = self.world_saved_count
         if was_running:
             self.send_command("save-off")
             self.send_command("save-all flush")
             start_t = time.time()
             while time.time() - start_t < flush_timeout_sec:
-                time.sleep(0.15)
-                recent = self.parser.history[-8:]
+                time.sleep(0.1)
+                if self.world_saved_count > baseline_saved:
+                    break
+                recent = list(self.parser.history[-10:])
+                if self._thread is not None:
+                    th_hist = getattr(self._thread, "_log_history", None) or getattr(self._thread, "log_history", None)
+                    if isinstance(th_hist, list):
+                        recent.extend(th_hist[-10:])
                 if any(
-                    "saved the game" in l.lower()
-                    or "all dimensions are saved" in l.lower()
-                    or "all chunks are saved" in l.lower()
+                    "saved the game" in str(l).lower()
+                    or "all dimensions are saved" in str(l).lower()
+                    or "all chunks are saved" in str(l).lower()
                     for l in recent
                 ):
                     break
@@ -167,3 +209,4 @@ class ServerProcessCoordinator:
 
 
 DEFAULT_PROCESS_COORDINATOR = ServerProcessCoordinator()
+

@@ -83,7 +83,28 @@ class UpdateCheckThread(QThread):
             if not asset:
                 self.no_update.emit()
                 return
-            self.asset_digest = str(asset.get("digest") or "")
+            digest = str(asset.get("digest") or "").strip()
+            if not digest:
+                body = release.get("body") or ""
+                m = re.search(r'(?i)sha256[:\s=]+([a-f0-9]{64})', body)
+                if m:
+                    digest = f"sha256:{m.group(1).lower()}"
+                else:
+                    asset_name = asset.get("name", "").lower()
+                    for other in release.get("assets", []):
+                        o_name = other.get("name", "").lower()
+                        if o_name in (f"{asset_name}.sha256", "sha256sums.txt", "checksums.txt"):
+                            try:
+                                d_req = urllib.request.Request(other["browser_download_url"], headers={"User-Agent": USER_AGENT})
+                                with urllib.request.urlopen(d_req, timeout=5) as d_resp:
+                                    txt = d_resp.read().decode("utf-8", errors="ignore")
+                                    cm = re.search(r'\b([a-f0-9]{64})\b', txt, re.IGNORECASE)
+                                    if cm:
+                                        digest = f"sha256:{cm.group(1).lower()}"
+                                        break
+                            except Exception:
+                                pass
+            self.asset_digest = digest
             self.update_available.emit(tag, asset["browser_download_url"],
                                        asset["name"], int(asset.get("size") or 0))
         except Exception as e:  # offline, 403 rate limit, JSON hatasi...
@@ -130,8 +151,8 @@ class UpdateDownloadThread(QThread):
                     self.progress.emit(int(done * 100 / total) if total else -1)
             if total and done != total:
                 raise RuntimeError("Incomplete download" if en else "Indirme eksik kaldi")
-            if self.expected_digest.lower().startswith("sha256:"):
-                expected_hex = self.expected_digest.split(":", 1)[1].strip().lower()
+            if self.expected_digest:
+                expected_hex = self.expected_digest.split(":", 1)[1].strip().lower() if ":" in self.expected_digest else self.expected_digest.strip().lower()
                 if expected_hex and hasher.hexdigest().lower() != expected_hex:
                     raise RuntimeError("Installer SHA-256 verification failed" if en else "Kurulum dosyası SHA-256 doğrulaması başarısız")
             if os.path.exists(dest):
@@ -161,10 +182,11 @@ class AppUpdater(QObject):
     """Ana pencereye bagli guncelleyici. Thread referanslarini tutar."""
 
     def __init__(self, parent_window, current_version):
-        super().__init__(parent_window)
+        super().__init__(parent_window if isinstance(parent_window, QObject) else None)
         self.window = parent_window
         self.current_version = current_version
         self._threads = []
+        self._last_check_thread = None
         self._progress_dialog = None
 
     def _lang(self):
@@ -177,8 +199,15 @@ class AppUpdater(QObject):
         t.finished.connect(lambda t=t: self._threads.remove(t) if t in self._threads else None)
 
     def check(self, manual=False):
+        if getattr(self, "_last_check_thread", None) and self._last_check_thread.isRunning():
+            return False
+        btn = getattr(self.window, "btn_check_updates", None) if self.window else None
+        if btn and hasattr(btn, "setEnabled"):
+            btn.setEnabled(False)
         t = UpdateCheckThread(self.current_version)
         self._last_check_thread = t
+        if btn and hasattr(btn, "setEnabled"):
+            t.finished.connect(lambda b=btn: b.setEnabled(True))
         t.update_available.connect(self._on_update_available)
         if manual:
             t.no_update.connect(lambda: QMessageBox.information(
@@ -197,6 +226,7 @@ class AppUpdater(QObject):
             ))
         self._keep(t)
         t.start()
+        return True
 
     def _on_update_available(self, tag, url, name, size):
         lang = self._lang()

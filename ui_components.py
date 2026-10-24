@@ -5,6 +5,32 @@ from PySide6.QtCore import Qt, Signal, QThread, QPoint
 from PySide6.QtGui import QFont, QFontDatabase
 import os
 import re
+import time
+
+_LAST_OPEN_TIMES: dict[str, float] = {}
+
+
+def safe_open_path(target_path: str, cooldown: float = 1.0) -> bool:
+    if not target_path:
+        return False
+    now = time.time()
+    key = target_path if str(target_path).startswith("shell:") else os.path.normcase(os.path.abspath(str(target_path)))
+    if now - _LAST_OPEN_TIMES.get(key, 0.0) < cooldown:
+        return False
+    _LAST_OPEN_TIMES[key] = now
+    if hasattr(os, "startfile"):
+        try:
+            os.startfile(target_path)
+            return True
+        except Exception:
+            pass
+    import subprocess
+    try:
+        subprocess.Popen(["explorer.exe", str(target_path)], shell=False)
+        return True
+    except Exception:
+        return False
+
 
 _FONTS_LOADED = False
 
@@ -352,7 +378,8 @@ class InstalledModsPanel(QWidget):
         self._pending_mods = []
         self._pending_idx = 0
         self._last_dir_mtime = -1
-        self._last_loaded_count = 0
+        self._last_loaded_count = -1
+        self._is_batch_loading = False
         self._cached_toggle_styles_theme = None
         self._cached_on_style = ""
         self._cached_off_style = ""
@@ -562,10 +589,12 @@ class InstalledModsPanel(QWidget):
         return None
 
     def switch_sub_tab(self, index, play_sound=False):
-        if play_sound:
+        if play_sound and getattr(self, "sub_stack", None) and self.sub_stack.currentIndex() == index:
+            return
+        if play_sound and getattr(self, "sub_stack", None) and self.sub_stack.currentIndex() != index:
             try:
                 from sound_manager import SoundManager
-                SoundManager.get_instance().play_book_flip()
+                SoundManager.get_instance().play_bookshelf_insert()
             except Exception:
                 pass
         self.sub_stack.setCurrentIndex(index)
@@ -848,15 +877,23 @@ class InstalledModsPanel(QWidget):
         
     def load_mods(self, mods_dir, pdata=None, pid=None, main_window=None):
         dir_mtime = os.path.getmtime(mods_dir) if mods_dir and os.path.exists(mods_dir) else 0
+        loaded_count = getattr(self, "_last_loaded_count", -1)
+        loaded_matches = (
+            getattr(self, "_is_batch_loading", False)
+            or (loaded_count == 0 and self.mod_list.count() == 1)
+            or (loaded_count > 0 and loaded_count == self.mod_list.count())
+        )
         if (
             getattr(self, "current_dir", None) == mods_dir
             and getattr(self, "pid", None) == pid
             and getattr(self, "_last_dir_mtime", -1) == dir_mtime
-            and getattr(self, "_last_loaded_count", 0) == self.mod_list.count()
-            and self.mod_list.count() > 0
+            and loaded_matches
         ):
             return
 
+        self._mod_load_gen = getattr(self, "_mod_load_gen", 0) + 1
+        self._is_batch_loading = False
+        self._last_loaded_count = -1
         self.current_dir = mods_dir
         self.pdata = pdata
         self.pid = pid
@@ -913,6 +950,9 @@ class InstalledModsPanel(QWidget):
         self.mod_list.clear()
         empty_txt = "No mods installed in this profile." if self.lang == "en" else "Bu profilde henüz mod yok."
         if not self.current_dir or not os.path.exists(self.current_dir):
+            self._last_loaded_count = 0
+            self._is_batch_loading = False
+            self._pending_mods = []
             item = QListWidgetItem(empty_txt)
             item.setTextAlignment(Qt.AlignCenter)
             item.setFlags(Qt.NoItemFlags)
@@ -923,6 +963,9 @@ class InstalledModsPanel(QWidget):
         mods = [f for f in os.listdir(self.current_dir) if f.endswith(".jar") or f.endswith(".jar.disabled") or f.endswith(".pak") or f.endswith(".pak.disabled")]
         
         if not mods:
+            self._last_loaded_count = 0
+            self._is_batch_loading = False
+            self._pending_mods = []
             item = QListWidgetItem(empty_txt)
             item.setTextAlignment(Qt.AlignCenter)
             item.setFlags(Qt.NoItemFlags)
@@ -933,6 +976,8 @@ class InstalledModsPanel(QWidget):
         mods.sort()
         self._pending_mods = mods
         self._pending_idx = 0
+        self._last_loaded_count = len(mods)
+        self._is_batch_loading = True
         self._load_mod_batch(gen, initial=True)
 
     def _load_mod_batch(self, gen, initial=False):
@@ -964,6 +1009,7 @@ class InstalledModsPanel(QWidget):
         self._pending_idx = end_idx
         total = len(self._pending_mods)
         self._last_loaded_count = total
+        self._is_batch_loading = self._pending_idx < total
         current_count = self.mod_list.count()
         self._update_mod_count_label(current_count, total)
         
@@ -1087,7 +1133,7 @@ class InstalledModsPanel(QWidget):
             return
         saves_dir = os.path.join(root, "saves")
         os.makedirs(saves_dir, exist_ok=True)
-        os.startfile(saves_dir)
+        safe_open_path(saves_dir)
 
     def delete_selected_world(self):
         import shutil
@@ -1172,7 +1218,7 @@ class InstalledModsPanel(QWidget):
         item = self.shot_list.currentItem()
         fpath = item.data(Qt.UserRole) if item else None
         if fpath and os.path.exists(fpath):
-            os.startfile(fpath)
+            safe_open_path(fpath)
 
     def copy_selected_screenshot(self):
         from PySide6.QtWidgets import QApplication
@@ -1198,7 +1244,7 @@ class InstalledModsPanel(QWidget):
             return
         shots_dir = os.path.join(root, "screenshots")
         os.makedirs(shots_dir, exist_ok=True)
-        os.startfile(shots_dir)
+        safe_open_path(shots_dir)
 
     def delete_selected_screenshot(self):
         en = self.lang == "en"
@@ -1336,7 +1382,7 @@ class InstalledModsPanel(QWidget):
         logs_dir = os.path.join(root, "logs")
         target = crash_dir if os.path.exists(crash_dir) and os.listdir(crash_dir) else logs_dir
         os.makedirs(target, exist_ok=True)
-        os.startfile(target)
+        safe_open_path(target)
 
 class UserCard(QFrame):
     login_requested = Signal()
@@ -1468,6 +1514,7 @@ class NavBar(QFrame):
         super().__init__(parent)
         self.setObjectName("NavBar")
         self.setFixedWidth(210)
+        self._current_key = None
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 14, 10, 14)
@@ -1570,18 +1617,28 @@ class NavBar(QFrame):
             
         self.game_changed.emit(game_name)
 
+    def set_active_tab(self, key):
+        norm_key = "home" if key == "profiles" else key
+        if getattr(self, "_current_key", None) == norm_key:
+            return
+        self._current_key = norm_key
+        for k, b in self.btns.items():
+            b.setProperty("active", str(k == norm_key).lower())
+            b.style().unpolish(b)
+            b.style().polish(b)
+
     def on_nav_click(self, key, play_sound=True):
+        norm_key = "home" if key == "profiles" else key
+        if getattr(self, "_current_key", None) == norm_key:
+            return
         if play_sound:
             try:
                 from sound_manager import SoundManager
                 SoundManager.get_instance().play_book_flip()
             except Exception:
                 pass
-        for k, b in self.btns.items():
-            b.setProperty("active", str(k == key).lower())
-            b.style().unpolish(b)
-            b.style().polish(b)
-        self.nav_clicked.emit(key)
+        self.set_active_tab(norm_key)
+        self.nav_clicked.emit(norm_key)
 
     def set_theme(self, theme_key: str):
         self._active_theme = theme_key

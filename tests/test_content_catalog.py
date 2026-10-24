@@ -189,6 +189,44 @@ class TestContentCatalogDeepModule(unittest.TestCase):
             self.assertFalse((profile_dir / "mods.old_bak").exists())
             self.assertFalse((profile_dir / "config.old_bak").exists())
 
+    def test_catalog_task_runner_async(self):
+        import sys
+        from PySide6.QtCore import QCoreApplication
+        app = QCoreApplication.instance() or QCoreApplication(sys.argv)
+        results = []
+        catalog = ContentCatalog(transport=FakeTransportAdapter())
+        runner = catalog.run_async(lambda: "computed_val", on_success=lambda r: results.append(r))
+        self.assertIn(runner, catalog._active_runners)
+        runner.wait(2000)
+        app.processEvents()
+        self.assertEqual(results, ["computed_val"])
+        self.assertNotIn(runner, catalog._active_runners)
+
+    def test_extract_zip_safely(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_path = os.path.join(tmpdir, "test.zip")
+            out_dir = os.path.join(tmpdir, "out")
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("normal.pak", b"pak-content")
+                zf.writestr("sub/nested.pak", b"nested-pak")
+                zf.writestr("other.txt", b"text-content")
+                zf.writestr("../evil.txt", b"evil-content")
+
+            # Test flatten with .pak filter
+            extracted = ContentCatalog.extract_zip_safely(
+                zip_path,
+                out_dir,
+                pattern=lambda fn: fn.lower().endswith(".pak"),
+                flatten=True,
+            )
+            self.assertIn("normal.pak", extracted)
+            self.assertIn("nested.pak", extracted)
+            self.assertNotIn("other.txt", extracted)
+            self.assertNotIn("../evil.txt", extracted)
+            self.assertTrue(os.path.isfile(os.path.join(out_dir, "normal.pak")))
+            self.assertTrue(os.path.isfile(os.path.join(out_dir, "nested.pak")))
+            self.assertFalse(os.path.isfile(os.path.join(tmpdir, "evil.txt")))
+
 
 if __name__ == "__main__":
     unittest.main()

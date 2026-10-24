@@ -186,7 +186,7 @@ class TestAuditFixesV2(unittest.TestCase):
         panel._api_threads = [old_mock]
 
         data = {"project_id": "test_proj"}
-        with patch("main.ProjectDetailsThread") as mock_thread_cls:
+        with patch("content_browser.ProjectDetailsThread") as mock_thread_cls:
             new_thread = MagicMock()
             new_thread.isRunning.return_value = False
             mock_thread_cls.return_value = new_thread

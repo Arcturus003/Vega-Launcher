@@ -16,7 +16,7 @@ from PySide6.QtCore import QObject, QUrl
 from PySide6.QtMultimedia import QSoundEffect
 
 
-SOUND_VERSION = 8
+SOUND_VERSION = 10
 
 
 def _ensure_dir(path: str):
@@ -66,8 +66,8 @@ def extract_authentic_minecraft_sounds(dest_dir: str) -> bool:
         "launch.wav": os.path.join(objs, "30", "301f32642b654addbd06a430768fead464fd24c4"),
         "levelup.wav": os.path.join(objs, "b9", "b9c60e807ba770e8c4a2b1bae81d51813dc64b6c"),
         "error.wav": os.path.join(objs, "93", "934b16e82b94d5790175615303594f0ec28da4a0"),
-        "door_open.wav": os.path.join(objs, "5b", "5bb5a04e776d69ca12b1d7bc369975f9bf62e741"),
-        "door_close.wav": os.path.join(objs, "9e", "9ea8a9e105321891bda18b9007b383b40aa7c076"),
+        "door_open.wav": os.path.join(objs, "4e", "4ed1f29f3e1378811f7fcc49db743400b8e3284f"),
+        "door_close.wav": os.path.join(objs, "87", "871634413de37a092d0e5fe7844a37917c27bbf2"),
         "book_flip.wav": os.path.join(objs, "23", "234d6a686516c264a370ea834b87d47ae7334ef7"),
         "enderchest_open.wav": os.path.join(objs, "82", "822b19d5b722fd689e60cfaa7c3ae39a3bdf701c"),
         "enderchest_close.wav": os.path.join(objs, "5f", "5f3412ca2fe0141a412dfd66567aa13a26e89ec1"),
@@ -82,6 +82,7 @@ def extract_authentic_minecraft_sounds(dest_dir: str) -> bool:
         "teleport.wav": os.path.join(objs, "7b", "7b4b5323ef066caa1ae43cbe66fffd9dfce4ed32"),
         "lever_on.wav": (os.path.join(objs, "ec", "ec4f4d122ab7c5d44e48419de0e3de1b0922514d"), "asetrate=44100*1.15,aresample=44100"),
         "lever_off.wav": (os.path.join(objs, "ec", "ec4f4d122ab7c5d44e48419de0e3de1b0922514d"), "asetrate=44100*0.88,aresample=44100"),
+        "bookshelf_insert.wav": os.path.join(objs, "ff", "ff0253a660370841a8e7a1e3370c66c0e3a29dac"),
     }
 
     _ensure_dir(os.path.join(dest_dir, "test.wav"))
@@ -416,6 +417,35 @@ def generate_lever_off_wav(path: str):
         wf.writeframes(struct.pack(f"<{len(samples)}h", *samples))
 
 
+def generate_bookshelf_insert_wav(path: str):
+    """
+    Synthesizes an organic, warm Minecraft chiseled bookshelf book insert sound (65ms).
+    Layers a woody acoustic impulse (320Hz sliding to 160Hz) with subtle parchment friction.
+    """
+    _ensure_dir(path)
+    sample_rate = 44100
+    duration = 0.065
+    num_samples = int(sample_rate * duration)
+    with wave.open(path, "w") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        samples = []
+        phase = 0.0
+        for i in range(num_samples):
+            t = i / sample_rate
+            p = t / duration
+            env = math.exp(-p * 14.0) * math.sin(min(1.0, p / 0.08) * (math.pi / 2))
+            freq = 320.0 - 160.0 * (p ** 0.5)
+            phase += 2.0 * math.pi * freq / sample_rate
+            wood_body = math.sin(phase) + 0.35 * math.sin(phase * 2.1)
+            friction = (math.sin(2.0 * math.pi * 1840.0 * t) * 0.15) * (1.0 - p)
+            val = (wood_body * 0.75 + friction) * env * 0.85
+            clamped = max(-1.0, min(1.0, val))
+            samples.append(int(clamped * 32767))
+        wf.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+
+
 class SoundManager(QObject):
     """Singleton audio manager for Vega Launcher UI sound effects."""
 
@@ -440,6 +470,8 @@ class SoundManager(QObject):
         self._click_voices: List[QSoundEffect] = []
         self._click_voice_idx = 0
         self._last_click_time = 0.0
+        self._last_sound_times: Dict[str, float] = {}
+        self._sound_cooldown = 0.14
         self._init_sounds()
 
     def _init_sounds(self):
@@ -487,6 +519,7 @@ class SoundManager(QObject):
             "teleport": (os.path.join(self.sounds_dir, "teleport.wav"), generate_teleport_wav),
             "lever_on": (os.path.join(self.sounds_dir, "lever_on.wav"), generate_lever_on_wav),
             "lever_off": (os.path.join(self.sounds_dir, "lever_off.wav"), generate_lever_off_wav),
+            "bookshelf_insert": (os.path.join(self.sounds_dir, "bookshelf_insert.wav"), generate_bookshelf_insert_wav),
         }
 
         # Step 1: Attempt to extract authentic original Minecraft sound effects
@@ -561,6 +594,12 @@ class SoundManager(QObject):
         if sound_name == "click":
             self.play_click(force=force)
             return
+
+        now = time.time()
+        last_t = self._last_sound_times.get(sound_name, 0.0)
+        if now - last_t < getattr(self, "_sound_cooldown", 0.14):
+            return
+        self._last_sound_times[sound_name] = now
 
         effect = self._effects.get(sound_name)
         if effect:
@@ -669,6 +708,11 @@ class SoundManager(QObject):
             self.play_lever_on(force=force)
         else:
             self.play_lever_off(force=force)
+
+    def play_bookshelf_insert(self, force: bool = False):
+        self.play("bookshelf_insert", force=force)
+
+    play_subtab = play_bookshelf_insert
 
     @classmethod
     def safe_click(cls):

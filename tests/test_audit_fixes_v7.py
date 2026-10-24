@@ -53,11 +53,11 @@ class TestAuditFixesV7(unittest.TestCase):
         self.assertIn("WScript.Shell", source)
 
     def test_profile_deletion_cmd_path_quoted(self):
-        """Finding 6: Verifies profile_store.py quotes path when calling cmd.exe rd /s /q."""
+        """Finding 6: Verifies profile_store.py passes real_target without double-quoting to cmd.exe rd /s /q."""
         ps_py = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profile_store.py")
         with open(ps_py, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn('f\'"{real_target}"\'', content)
+        self.assertIn('["cmd.exe", "/c", "rd", "/s", "/q", real_target]', content)
 
     def test_release_helper_runs_unittest_discover(self):
         """Finding 7: Verifies release_helper.py executes automated test discovery."""

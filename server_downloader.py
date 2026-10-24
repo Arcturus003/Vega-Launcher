@@ -1,5 +1,4 @@
 import os
-import urllib.request
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QComboBox, 
                                QPushButton, QProgressBar, QMessageBox)

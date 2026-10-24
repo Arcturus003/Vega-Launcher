@@ -7,6 +7,8 @@ from runtime_provisioner import RuntimeProvisioner, RuntimeSpec, DEFAULT_PROVISI
 class EngineInstallThread(QThread):
     progress_update = Signal(int, int, str)
     finished_install = Signal(bool, str) # success, version_id_or_error
+    status = Signal(str)
+    task_finished = Signal(bool, str)
 
     def __init__(self, engine_type, mc_version, mc_dir, provisioner: RuntimeProvisioner = None, lang: str = "tr"):
         super().__init__()
@@ -16,6 +18,7 @@ class EngineInstallThread(QThread):
         self.provisioner = provisioner or DEFAULT_PROVISIONER
         self.lang = lang
         self._is_cancelled = False
+        self.finished_install.connect(self.task_finished.emit)
 
     def cancel(self):
         self._is_cancelled = True
@@ -24,6 +27,8 @@ class EngineInstallThread(QThread):
         try:
             def on_progress(cur, tot, text):
                 self.progress_update.emit(cur, tot, text)
+                if text:
+                    self.status.emit(text)
 
             spec = RuntimeSpec(mc_version=self.mc_version, loader=self.engine_type.lower())
             installed_ver = self.provisioner.install_client_runtime(
@@ -36,6 +41,7 @@ class EngineInstallThread(QThread):
             self.finished_install.emit(True, installed_ver)
         except Exception as e:
             self.finished_install.emit(False, str(e))
+
 
 class EngineInstallDialog(QDialog):
     def __init__(self, profile_data, profile_id, main_window, parent=None, lang=None):

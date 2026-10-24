@@ -50,9 +50,12 @@ class AuthenticationVault:
     @classmethod
     def is_network_available(cls, host: str = "1.1.1.1", port: int = 443, timeout: float = 1.2) -> bool:
         """Fast non-blocking connectivity check to avoid HTTP timeout lags when offline."""
-        for target_port in (port, 53) if port != 53 else (53, 443):
+        targets = [(host, port), (host, 53)]
+        if host != "8.8.8.8":
+            targets.append(("8.8.8.8", 53))
+        for target_host, target_port in targets:
             try:
-                with socket.create_connection((host, target_port), timeout=timeout):
+                with socket.create_connection((target_host, target_port), timeout=timeout):
                     return True
             except Exception:
                 continue
@@ -91,7 +94,8 @@ class AuthenticationVault:
 
         try:
             raw_bytes = secret_text.encode("utf-8")
-            blob_in = DATA_BLOB(len(raw_bytes), ctypes.cast(ctypes.create_string_buffer(raw_bytes), ctypes.POINTER(ctypes.c_byte)))
+            in_buffer = ctypes.create_string_buffer(raw_bytes)
+            blob_in = DATA_BLOB(len(raw_bytes), ctypes.cast(in_buffer, ctypes.POINTER(ctypes.c_byte)))
             blob_out = DATA_BLOB()
 
             if _CryptProtectData(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
@@ -123,7 +127,8 @@ class AuthenticationVault:
 
         try:
             encrypted_bytes = base64.b64decode(b64_part)
-            blob_in = DATA_BLOB(len(encrypted_bytes), ctypes.cast(ctypes.create_string_buffer(encrypted_bytes), ctypes.POINTER(ctypes.c_byte)))
+            in_buffer = ctypes.create_string_buffer(encrypted_bytes)
+            blob_in = DATA_BLOB(len(encrypted_bytes), ctypes.cast(in_buffer, ctypes.POINTER(ctypes.c_byte)))
             blob_out = DATA_BLOB()
 
             if _CryptUnprotectData(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
@@ -189,5 +194,102 @@ class AuthenticationVault:
             raw_data=decrypted,
         )
 
+    CLIENT_ID = "00000000402b5328"
+    REDIRECT_URI = "https://login.live.com/oauth20_desktop.srf"
+
+    @classmethod
+    def validate_or_refresh_session(
+        cls,
+        ms_login: Optional[dict],
+        client_id: str = CLIENT_ID,
+        redirect_uri: str = REDIRECT_URI,
+        transport: Any = None,
+        refresh_fn: Any = None,
+    ) -> dict[str, Any]:
+        """Validate an existing Microsoft session token or silently refresh it.
+
+        Returns a structured dict with keys:
+          - status: 'ok' | 'network_error' | 'network_error_abort' | 'need_login'
+          - new_data / refreshed_login: refreshed account dict or None
+          - error_msg: human-readable network/API error string
+        """
+        login_dict = dict(ms_login or {})
+        token = login_dict.get("access_token", "")
+        http = transport
+        if http is None:
+            import requests as _requests
+            http = _requests
+
+        if token:
+            try:
+                resp = http.get(
+                    "https://api.minecraftservices.com/minecraft/profile",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=5,
+                )
+                if resp.status_code == 200:
+                    return {"status": "ok", "new_data": None, "refreshed_login": None, "error_msg": ""}
+                elif resp.status_code != 401:
+                    return {
+                        "status": "network_error",
+                        "new_data": None,
+                        "refreshed_login": None,
+                        "error_msg": f"HTTP {resp.status_code}",
+                    }
+            except Exception as e:
+                return {
+                    "status": "network_error",
+                    "new_data": None,
+                    "refreshed_login": None,
+                    "error_msg": str(e),
+                }
+
+        refresh_token = login_dict.get("refresh_token")
+        if refresh_token:
+            try:
+                if refresh_fn is None:
+                    import minecraft_launcher_lib
+                    refresh_fn = minecraft_launcher_lib.microsoft_account.complete_refresh
+                new_login_data = refresh_fn(client_id, None, redirect_uri, refresh_token)
+                if new_login_data and "access_token" in new_login_data:
+                    return {
+                        "status": "ok",
+                        "new_data": new_login_data,
+                        "refreshed_login": new_login_data,
+                        "error_msg": "",
+                    }
+            except Exception as e:
+                err_str = str(e).lower()
+                is_net_err = isinstance(e, (OSError, IOError))
+                if not is_net_err:
+                    try:
+                        import requests as _requests
+                        is_net_err = isinstance(e, _requests.exceptions.RequestException)
+                    except Exception:
+                        pass
+                if is_net_err or any(
+                    kw in err_str
+                    for kw in [
+                        "connection",
+                        "timeout",
+                        "network",
+                        "getaddrinfo",
+                        "max retries",
+                        "disconnected",
+                        "reset",
+                        "abort",
+                        "unreachable",
+                    ]
+                ):
+                    return {
+                        "status": "network_error_abort",
+                        "new_data": None,
+                        "refreshed_login": None,
+                        "error_msg": str(e),
+                    }
+
+        return {"status": "need_login", "new_data": None, "refreshed_login": None, "error_msg": ""}
+
 
 DEFAULT_AUTH_VAULT = AuthenticationVault()
+

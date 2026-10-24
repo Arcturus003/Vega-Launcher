@@ -6,6 +6,9 @@ class DownloadVanillaThread(QThread):
     task_finished = Signal(bool, str)
     progress_update = Signal(str)
     progress_val = Signal(int)
+    progress = Signal(int)
+    status = Signal(str)
+    finished_dl = Signal(bool, str)
 
     def __init__(self, version_id, minecraft_dir, provisioner: RuntimeProvisioner = None, lang: str = "tr"):
         super().__init__()
@@ -14,6 +17,10 @@ class DownloadVanillaThread(QThread):
         self.provisioner = provisioner or DEFAULT_PROVISIONER
         self.lang = lang
         self._is_cancelled = False
+        self.progress_val.connect(self.progress.emit)
+        self.progress_update.connect(self.status.emit)
+        self.task_finished.connect(self.finished_dl.emit)
+
 
     def cancel(self):
         self._is_cancelled = True

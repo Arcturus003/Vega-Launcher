@@ -7,8 +7,13 @@ import zipfile
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Protocol, Tuple
 
-from auth_window import needs_rebind_token, protect_token, unprotect_token
+from auth_vault import AuthenticationVault
+
+protect_token = AuthenticationVault.encrypt_secret
+unprotect_token = AuthenticationVault.decrypt_secret
+needs_rebind_token = AuthenticationVault.needs_rebind
 _GOOGLE_DRIVE_DEPS_LOADED = False
+
 
 
 def _ensure_google_drive():
@@ -166,19 +171,33 @@ class GoogleDriveBackupAdapter:
 
             if not creds or not creds.valid:
                 login_msg = "Sign in with your Google account (opening browser)..." if en else "Google hesabınızla giriş yapın (tarayıcı açılıyor)..."
+                flow_err = None
                 if creds and creds.expired and creds.refresh_token:
                     try:
                         creds.refresh(Request())
                     except Exception:
                         if on_stage:
                             on_stage(login_msg)
-                        flow = InstalledAppFlow.from_client_secrets_file(creds_path, self.SCOPES)
-                        creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=60)
+                        try:
+                            flow = InstalledAppFlow.from_client_secrets_file(creds_path, self.SCOPES)
+                            creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=45)
+                        except Exception as e:
+                            flow_err = str(e)
                 else:
                     if on_stage:
                         on_stage(login_msg)
-                    flow = InstalledAppFlow.from_client_secrets_file(creds_path, self.SCOPES)
-                    creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=60)
+                    try:
+                        flow = InstalledAppFlow.from_client_secrets_file(creds_path, self.SCOPES)
+                        creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=45)
+                    except Exception as e:
+                        flow_err = str(e)
+
+                if flow_err or not creds or not getattr(creds, "valid", False):
+                    err_detail = f" (Drive auth error: {flow_err})" if flow_err else " (Drive authentication failed)"
+                    if on_stage:
+                        on_stage("Google Drive sign-in failed" if en else "Google Drive girişi başarısız oldu")
+                    return CloudUploadResult(False, err_detail)
+
                 try:
                     token_str = creds.to_json()
                     protected_content = protect_token(token_str)
@@ -306,6 +325,36 @@ class BackupManager:
                 if on_stage and ((i + 1) % 50 == 0 or i + 1 == total_files):
                     on_stage(f"Creating ZIP... ({i + 1}/{total_files})" if en else f"ZIP oluşturuluyor... ({i + 1}/{total_files})")
         return zip_path
+
+    @classmethod
+    def create_server_backup(
+        cls,
+        server_dir: str,
+        zip_path: Optional[str] = None,
+        label: Optional[str] = None,
+    ) -> Tuple[str, int]:
+        """Create a server ZIP archive at `zip_path` (or inside `<server_dir>/backups/`) and return `(zip_path, file_count)`."""
+        if not zip_path:
+            backups_dir = os.path.join(server_dir, "backups")
+            os.makedirs(backups_dir, exist_ok=True)
+            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            server_name = os.path.basename(os.path.normpath(server_dir))
+            safe_label = ""
+            if label:
+                import re as _re
+                cleaned = _re.sub(r'[<>:"/\\|?*]', "", label).strip()
+                if cleaned:
+                    safe_label = f"_{cleaned}"
+            zip_path = os.path.join(backups_dir, f"{server_name}_{stamp}{safe_label}.zip")
+        else:
+            os.makedirs(os.path.dirname(os.path.abspath(zip_path)), exist_ok=True)
+
+        files_to_zip = cls.collect_server_backup_files(server_dir)
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for file_path, arcname in files_to_zip:
+                zipf.write(file_path, arcname)
+        return zip_path, len(files_to_zip)
+
 
     @classmethod
     def run_server_backup(

@@ -127,7 +127,7 @@ class TestProfileAndConfigStore(unittest.TestCase):
                 self.assertNotIn("vega_stale", synced)
                 self.assertIn("vega_active1", synced)
                 self.assertEqual(synced["vega_active1"]["name"], "[Vega] AetherPack")
-                self.assertEqual(synced["vega_active1"]["javaArgs"], "-Xmx6144m -Xms512m")
+                self.assertEqual(synced["vega_active1"]["javaArgs"], "-Xmx6144m -Xms512m -Duser.language=en -Duser.country=US")
                 if fname == "launcher_profiles.json":
                     self.assertIn("vanilla_ official", synced)
 
@@ -257,6 +257,68 @@ class TestProfileAndConfigStore(unittest.TestCase):
             _, cleaned_login, _ = store.load()
             self.assertNotIn("access_token", cleaned_login)
             self.assertEqual(cleaned_login.get("name"), "Alex")
+
+
+class TestProfileSessionManager(unittest.TestCase):
+    def test_session_selection_and_invariants(self):
+        import sys
+        from PySide6.QtCore import QCoreApplication
+        app = QCoreApplication.instance() or QCoreApplication(sys.argv)
+        from profile_store import ProfileSessionManager, ProfileAndConfigStore
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = ProfileAndConfigStore(data_dir=tmp_dir)
+            profiles = {
+                "p1": {"name": "Survival", "version": "1.20.1", "ram": 4096, "playtime": 100},
+                "p2": {"name": "Modded", "version": "1.20.4", "ram": 8192, "playtime": 0},
+            }
+            session = ProfileSessionManager(store, profiles)
+
+            # Test selection
+            selected = []
+            session.profile_selected.connect(lambda pid, pdata: selected.append((pid, pdata)))
+            pid, pdata = session.select_profile("p1")
+            self.assertEqual(pid, "p1")
+            self.assertEqual(pdata["name"], "Survival")
+            app.processEvents()
+            self.assertEqual(len(selected), 1)
+
+            # Test invariants
+            is_valid, _ = session.validate_profile_invariants({"name": "", "ram": 4096})
+            self.assertFalse(is_valid)
+            is_valid, _ = session.validate_profile_invariants({"name": "Test", "ram": 200})
+            self.assertFalse(is_valid)
+            is_valid, _ = session.validate_profile_invariants({"name": "Test", "ram": 4096})
+            self.assertTrue(is_valid)
+
+            # Test runtime update
+            ok = session.update_runtime("p1", "1.21.0", "Fabric")
+            self.assertTrue(ok)
+            self.assertEqual(session.profiles["p1"]["version"], "1.21.0")
+            self.assertEqual(session.profiles["p1"]["loader"], "fabric")
+
+            # Test playtime addition
+            new_playtime = session.add_playtime("p1", 60)
+            self.assertEqual(new_playtime, 160)
+            self.assertEqual(session.profiles["p1"]["playtime"], 160)
+
+            # Test field update
+            ok = session.update_profile_field("p1", "ram", 6144)
+            self.assertTrue(ok)
+            self.assertEqual(session.profiles["p1"]["ram"], 6144)
+
+            # Test create profile
+            ok = session.create_profile("p3", {"name": "Hardcore", "version": "1.20.1", "ram": 4096})
+            self.assertTrue(ok)
+            self.assertIn("p3", session.profiles)
+
+            # Test delete profile
+            session.select_profile("p3")
+            self.assertEqual(session.active_profile_id, "p3")
+            ok = session.delete_profile("p3")
+            self.assertTrue(ok)
+            self.assertNotIn("p3", session.profiles)
+            self.assertIsNone(session.active_profile_id)
 
 
 if __name__ == "__main__":

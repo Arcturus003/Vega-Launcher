@@ -8,7 +8,7 @@ class MinecraftServerThread(QThread):
     player_joined = Signal(str)
     player_left = Signal(str)
 
-    def __init__(self, server_dir, ram_gb=4, jar_name="server.jar", java_path=None, parent=None, lang="tr"):
+    def __init__(self, server_dir, ram_gb=4, jar_name="server.jar", java_path=None, parent=None, lang="tr", coordinator=None):
         super().__init__(parent)
         self.server_dir = server_dir
         self.ram_gb = ram_gb
@@ -17,29 +17,33 @@ class MinecraftServerThread(QThread):
         self.lang = lang
         self.process = None
         self.is_running = False
+        self.opened_claim_links = set()
+        self.playit_ip = None
+        from server_process_coordinator import ServerProcessCoordinator
+        self.coordinator = coordinator or ServerProcessCoordinator()
+
+    def _resolve_java_executable(self) -> str:
+        try:
+            from java_provisioner import DEFAULT_JAVA_PROVISIONER
+            from runtime_provisioner import RuntimeProvisioner
+            spec = RuntimeProvisioner.detect_server_runtime(self.server_dir)
+            _req, resolved = DEFAULT_JAVA_PROVISIONER.resolve_java_runtime(
+                mc_version=spec.mc_version,
+                custom_java=self.java_path if (self.java_path and os.path.exists(self.java_path)) else None,
+            )
+            if resolved:
+                return resolved
+        except Exception:
+            pass
+        if self.java_path and os.path.exists(self.java_path):
+            return self.java_path
+        return "java"
 
     def run(self):
         self.is_running = True
+        self.coordinator.attach_thread(self)
         en = self.lang == "en"
-        java_exe = "java"
-        if self.java_path and os.path.exists(self.java_path):
-            java_exe = self.java_path
-        elif os.name == 'nt':
-            import glob
-            matches = (
-                glob.glob(r"C:\Program Files\Microsoft\jdk-*\bin\java.exe") +
-                glob.glob(r"C:\Program Files\Eclipse Adoptium\jdk-*\bin\java.exe") +
-                glob.glob(r"C:\Program Files\Java\jdk-*\bin\java.exe")
-            )
-            if matches:
-                for candidate in reversed(sorted(matches)):
-                    if os.path.exists(candidate):
-                        java_exe = candidate
-                        break
-            if java_exe == "java" and "JAVA_HOME" in os.environ:
-                jh_java = os.path.join(os.environ["JAVA_HOME"], "bin", "java.exe")
-                if os.path.exists(jh_java):
-                    java_exe = jh_java
+        java_exe = self._resolve_java_executable()
 
         run_bat = os.path.join(self.server_dir, "run.bat")
         if os.path.exists(run_bat) and os.name == 'nt':
@@ -66,6 +70,7 @@ class MinecraftServerThread(QThread):
                 "nogui"
             ]
 
+        exit_code = 0
         try:
             self.process = subprocess.Popen(
                 cmd,
@@ -77,36 +82,23 @@ class MinecraftServerThread(QThread):
                 encoding='utf-8',
                 errors='replace',
                 bufsize=1,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
             )
             
-            import re
             import webbrowser
             
             for line in iter(self.process.stdout.readline, ''):
                 if line:
                     clean_line = line.strip()
                     self.log_ready.emit(clean_line)
-                    
-                    # Player join/leave detection
-                    if "joined the game" in clean_line:
-                        join_match = re.search(r'\[.+?\]:\s+([a-zA-Z0-9_]{3,16}) joined the game', clean_line)
-                        if join_match:
-                            self.player_joined.emit(join_match.group(1))
-                    elif "left the game" in clean_line:
-                        leave_match = re.search(r'\[.+?\]:\s+([a-zA-Z0-9_]{3,16}) left the game', clean_line)
-                        if leave_match:
-                            self.player_left.emit(leave_match.group(1))
-
-                    is_chat = bool(re.search(r'<\w+>|\*\s+\w+', clean_line))
-                    has_playit_tag = bool(re.search(r'\[playit(?:-companion|\.gg)?(?::|\/|\])', clean_line, re.IGNORECASE))
-
-                    if not is_chat and has_playit_tag and "https://playit.gg/" in clean_line and ("/claim/" in clean_line or "/mc/" in clean_line):
-                        match = re.search(r'(https://playit\.gg/(?:claim|mc)/[a-zA-Z0-9\-]+)', clean_line)
-                        if match:
-                            claim_url = match.group(1)
-                            if not hasattr(self, 'opened_claim_links'):
-                                self.opened_claim_links = set()
+                    events = self.coordinator.handle_stdout_line(clean_line)
+                    for ev in events:
+                        if ev.event_type == "player_joined" and ev.data:
+                            self.player_joined.emit(ev.data)
+                        elif ev.event_type == "player_left" and ev.data:
+                            self.player_left.emit(ev.data)
+                        elif ev.event_type == "claim_url" and ev.data:
+                            claim_url = ev.data
                             if claim_url not in self.opened_claim_links:
                                 self.opened_claim_links.add(claim_url)
                                 webbrowser.open(claim_url)
@@ -115,13 +107,9 @@ class MinecraftServerThread(QThread):
                                     if en else
                                     "[SİSTEM] Playit.gg doğrulama linki tarayıcınızda otomatik açıldı!"
                                 )
-                            
-                    # Playit.gg atanmış domain/IP'yi yakalama (ör: xxx.auto.playit.gg veya xxx.playit.gg:12345)
-                    if not is_chat and has_playit_tag and ("playit.gg" in clean_line or "ply.gg" in clean_line) and "claim" not in clean_line and "download" not in clean_line:
-                        ip_match = re.search(r'\b([a-zA-Z0-9\-\.]+\.(?:playit\.gg|ply\.gg)(?::\d+)?)\b', clean_line)
-                        if ip_match and ip_match.group(1) != "playit.gg":
-                            if getattr(self, 'playit_ip', None) != ip_match.group(1):
-                                self.playit_ip = ip_match.group(1)
+                        elif ev.event_type == "playit_ip" and ev.data:
+                            if getattr(self, 'playit_ip', None) != ev.data:
+                                self.playit_ip = ev.data
                                 self.log_ready.emit(
                                     f"\n==========================================================\n[SYSTEM] IP ADDRESS FOR YOUR FRIENDS TO CONNECT:\n   IP: {self.playit_ip}\n==========================================================\n"
                                     if en else
@@ -129,14 +117,26 @@ class MinecraftServerThread(QThread):
                                 )
                             
             try:
-                self.process.wait(timeout=5)
+                exit_code = self.process.wait(timeout=5) or 0
             except subprocess.TimeoutExpired:
                 self.kill_process_tree()
+                exit_code = -1
         except Exception as e:
+            exit_code = 1
             self.log_ready.emit(f"[ERROR] Could not start server: {e}" if en else f"[HATA] Sunucu başlatılamadı: {e}")
         finally:
             self.is_running = False
+            if self.process and self.process.stdin:
+                try:
+                    self.process.stdin.close()
+                except Exception:
+                    pass
+            try:
+                self.coordinator.on_process_exited(exit_code)
+            except Exception:
+                pass
             self.server_stopped.emit()
+
 
     def send_command(self, cmd):
         en = getattr(self, "lang", "tr") == "en"
@@ -172,7 +172,7 @@ class MinecraftServerThread(QThread):
                     subprocess.run(
                         ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
                         capture_output=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
                     )
                 else:
                     self.process.kill()
@@ -180,7 +180,7 @@ class MinecraftServerThread(QThread):
             except Exception:
                 pass
 
-    def terminate_process(self, timeout=3):
+    def terminate_process(self, timeout=7):
         """Gracefully request server stop and ensure process exits, killing if hung."""
         if self.process and self.is_running:
             try:

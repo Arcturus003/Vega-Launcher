@@ -127,6 +127,15 @@ class TestServerInstance(unittest.TestCase):
         self.assertTrue(self.inst.is_player_op("steve"))
         self.assertFalse(self.inst.is_player_op("Alex"))
 
+        statuses = self.inst.get_player_statuses(online_players={"Alex"})
+        self.assertEqual(len(statuses), 2)
+        self.assertEqual(statuses[0].name, "Alex")
+        self.assertTrue(statuses[0].online)
+        self.assertFalse(statuses[0].op)
+        self.assertEqual(statuses[1].name, "Steve")
+        self.assertFalse(statuses[1].online)
+        self.assertTrue(statuses[1].op)
+
         os.makedirs(os.path.join(self.server_dir, "mods"), exist_ok=True)
         os.makedirs(os.path.join(self.server_dir, "backups"), exist_ok=True)
         with open(os.path.join(self.server_dir, "mods", "a.jar"), "wb") as f:

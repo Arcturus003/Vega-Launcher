@@ -16,6 +16,7 @@ from typing import Callable, Optional, Sequence
 
 import requests
 from PySide6.QtCore import QThread, Signal
+from curseforge_api import CurseForgeAPI
 
 
 def detect_profile_loader(pdata: Optional[dict]) -> Optional[str]:
@@ -109,6 +110,7 @@ class InstallResult:
     filename: str = ""
     already_exists: bool = False
     rolled_back: bool = False
+    conflicting_file: str = ""
 
 
 class TransactionalRollback:
@@ -360,6 +362,24 @@ class ModrinthAPI:
             return False
 
 
+def find_existing_mod_files(dest_dir: str | Path, filename: str) -> list[str]:
+    if not os.path.isdir(str(dest_dir)):
+        return []
+    base_match = re.match(r"^([a-zA-Z0-9_\-]+?)(?:[-_]v?\d|\.jar|\.zip)", filename, re.IGNORECASE)
+    mod_stem = base_match.group(1).lower() if base_match else filename.lower().replace(".jar", "")
+    found = []
+    try:
+        for f in os.listdir(dest_dir):
+            if f.lower().endswith((".jar", ".zip")):
+                f_match = re.match(r"^([a-zA-Z0-9_\-]+?)(?:[-_]v?\d|\.jar|\.zip)", f, re.IGNORECASE)
+                f_stem = f_match.group(1).lower() if f_match else f.lower().replace(".jar", "")
+                if f_stem == mod_stem or f.lower() == filename.lower():
+                    found.append(f)
+    except Exception:
+        pass
+    return found
+
+
 class ContentCatalog:
     """
     Deep module encapsulating Modrinth catalog discovery, strict CompatibilityPolicy
@@ -370,6 +390,7 @@ class ContentCatalog:
         self.transport = transport or ModrinthAPI
         self.loader_installer = loader_installer or DefaultLoaderInstallerAdapter()
         self.mc_dir = mc_dir or os.path.join(os.getenv("APPDATA", ""), ".minecraft")
+        self._active_runners: list[QThread] = []
 
     def search(
         self,
@@ -532,14 +553,27 @@ class ContentCatalog:
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, art.filename)
 
-        if not overwrite and os.path.exists(dest_path):
+        existing_files = find_existing_mod_files(dest_dir, art.filename)
+
+        if not overwrite and (os.path.exists(dest_path) or existing_files):
+            existing_name = art.filename if os.path.exists(dest_path) else existing_files[0]
             return InstallResult(
                 ok=False,
-                message=f"This item is already installed:\n{art.filename}" if en else f"Bu öğe zaten yüklenmiş:\n{art.filename}",
+                message=f"This item is already installed:\n{existing_name}" if en else f"Bu öğe zaten yüklenmiş:\n{existing_name}",
                 version_id=art.version_id,
                 filename=art.filename,
                 already_exists=True,
+                conflicting_file=existing_name,
             )
+
+        if overwrite and existing_files:
+            for old_name in existing_files:
+                old_path = os.path.join(dest_dir, old_name)
+                if old_path != dest_path and os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except Exception:
+                        pass
 
         ok = self.transport.download_file(art.url, dest_path)
         if ok:
@@ -555,6 +589,94 @@ class ContentCatalog:
             version_id=art.version_id,
             filename=art.filename,
         )
+
+    @staticmethod
+    def _download_archive_entries(
+        files: list[dict],
+        is_curseforge: bool,
+        base_prof: str,
+        _emit_status: Callable[[str], None],
+        _emit_val: Callable[[int, int], None],
+        _cancelled: Callable[[], bool],
+        cancel_item_msg: str,
+        en: bool,
+    ) -> list[str]:
+        total = len(files)
+        completed = [0]
+        lock = threading.Lock()
+        failed_mods: list[str] = []
+
+        def _download_single(file_info: dict) -> tuple[bool, str]:
+            if _cancelled():
+                return False, cancel_item_msg
+
+            if is_curseforge:
+                pid = file_info.get("projectID") or file_info.get("projectId")
+                fid = file_info.get("fileID") or file_info.get("fileId")
+                if not pid or not fid:
+                    return True, ""
+                api_dl = CurseForgeAPI.get_file_download_url(pid, fid)
+                cf_url = api_dl or f"https://www.curseforge.com/api/v1/mods/{pid}/files/{fid}/download"
+                dl_url = cf_url
+                file_basename = f"{pid}-{fid}.jar"
+                is_cf = True
+            else:
+                path = file_info.get("path")
+                downloads = file_info.get("downloads", [])
+                file_basename = os.path.basename(path) if path else ("Unknown File" if en else "Bilinmeyen Dosya")
+                if not path or not downloads:
+                    return False, file_basename + (" (No download link)" if en else " (İndirme linki yok)")
+                dl_url = downloads[0]
+                is_cf = False
+
+            for _attempt in range(3):
+                if _cancelled():
+                    return False, cancel_item_msg
+                try:
+                    cf_url = dl_url
+                    fr = requests.get(cf_url, headers=ModrinthAPI.HEADERS, timeout=20, allow_redirects=is_cf)
+                    fr.raise_for_status()
+
+                    if is_cf:
+                        parsed_url = urllib.parse.urlparse(fr.url)
+                        parsed_name = os.path.basename(parsed_url.path)
+                        if parsed_name and parsed_name.endswith(".jar"):
+                            file_basename = parsed_name
+                        target_path = os.path.realpath(os.path.join(base_prof, "mods", file_basename))
+                    else:
+                        target_path = os.path.realpath(os.path.join(base_prof, file_info.get("path", "")))
+
+                    if not target_path.startswith(base_prof + os.sep):
+                        err_label = f"Project ID: {file_info.get('projectID')}" if is_cf else file_basename
+                        return False, f"{err_label} (Invalid file path)" if en else f"{err_label} (Geçersiz dosya yolu)"
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+                    with open(target_path, "wb") as f_out:
+                        f_out.write(fr.content)
+
+                    with lock:
+                        completed[0] += 1
+                        prefix = "CurseForge: " if is_cf else ""
+                        _emit_status(
+                            f"Downloading: {prefix}{file_basename} ({completed[0]}/{total})"
+                            if en else
+                            f"İndiriliyor: {prefix}{file_basename} ({completed[0]}/{total})"
+                        )
+                        _emit_val(completed[0], total)
+                    return True, ""
+                except Exception:
+                    pass
+
+            fail_id = f"Project ID: {file_info.get('projectID', 'unknown')}" if is_cf else file_basename
+            return False, fail_id
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+            results = list(executor.map(_download_single, files))
+            for ok, msg in results:
+                if not ok:
+                    failed_mods.append(msg)
+
+        return failed_mods
 
     def install_modpack(
         self,
@@ -609,12 +731,7 @@ class ContentCatalog:
                 _emit_status("Extracting archive..." if en else "Arşiv açılıyor...")
                 _emit_val(0, 0)
                 try:
-                    base_tmp = os.path.realpath(tmpdirname)
-                    with zipfile.ZipFile(mrpack_path, "r") as zip_ref:
-                        for zip_info in zip_ref.infolist():
-                            target = os.path.realpath(os.path.join(base_tmp, zip_info.filename))
-                            if target.startswith(base_tmp + os.sep) or target == base_tmp:
-                                zip_ref.extract(zip_info, tmpdirname)
+                    ContentCatalog.extract_zip_safely(mrpack_path, tmpdirname)
                 except Exception as e:
                     rollback_mgr.rollback()
                     return InstallResult(
@@ -692,53 +809,11 @@ class ContentCatalog:
                     )
 
                     files = index.get("files", [])
-                    total = len(files)
-                    completed = [0]
-                    lock = threading.Lock()
-
-                    def download_mr_file(file_info):
-                        if _cancelled():
-                            return False, cancel_item_msg
-                        path = file_info.get("path")
-                        downloads = file_info.get("downloads", [])
-                        file_basename = os.path.basename(path) if path else ("Unknown File" if en else "Bilinmeyen Dosya")
-
-                        if not path or not downloads:
-                            return False, file_basename + (" (No download link)" if en else " (İndirme linki yok)")
-
-                        target_path = os.path.realpath(os.path.join(base_prof, path))
-                        if not target_path.startswith(base_prof + os.sep):
-                            return False, file_basename + (" (Invalid file path)" if en else " (Geçersiz dosya yolu)")
-                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
-
-                        dl_url = downloads[0]
-                        for _attempt in range(3):
-                            if _cancelled():
-                                return False, cancel_item_msg
-                            try:
-                                fr = requests.get(dl_url, headers=ModrinthAPI.HEADERS, timeout=20)
-                                fr.raise_for_status()
-                                with open(target_path, "wb") as f_out:
-                                    f_out.write(fr.content)
-
-                                with lock:
-                                    completed[0] += 1
-                                    _emit_status(
-                                        f"Downloading: {file_basename} ({completed[0]}/{total})"
-                                        if en else
-                                        f"İndiriliyor: {file_basename} ({completed[0]}/{total})"
-                                    )
-                                    _emit_val(completed[0], total)
-                                return True, ""
-                            except Exception:
-                                pass
-                        return False, file_basename
-
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                        results = list(executor.map(download_mr_file, files))
-                        for ok, msg in results:
-                            if not ok:
-                                failed_mods.append(msg)
+                    failed_mods.extend(
+                        self._download_archive_entries(
+                            files, False, base_prof, _emit_status, _emit_val, _cancelled, cancel_item_msg, en
+                        )
+                    )
                 else:
                     mc_info = index.get("minecraft", {})
                     mc_version = mc_info.get("version", "1.20.1")
@@ -769,58 +844,11 @@ class ContentCatalog:
                     )
 
                     files = index.get("files", [])
-                    total = len(files)
-                    completed = [0]
-                    lock = threading.Lock()
-
-                    def download_cf_file(file_info):
-                        if _cancelled():
-                            return False, cancel_item_msg
-                        pid = file_info.get("projectID") or file_info.get("projectId")
-                        fid = file_info.get("fileID") or file_info.get("fileId")
-                        if not pid or not fid:
-                            return True, ""
-
-                        cf_url = f"https://www.curseforge.com/api/v1/mods/{pid}/files/{fid}/download"
-
-                        for _attempt in range(3):
-                            if _cancelled():
-                                return False, cancel_item_msg
-                            try:
-                                fr = requests.get(cf_url, headers=ModrinthAPI.HEADERS, timeout=20, allow_redirects=True)
-                                fr.raise_for_status()
-
-                                parsed_url = urllib.parse.urlparse(fr.url)
-                                file_basename = os.path.basename(parsed_url.path)
-                                if not file_basename.endswith(".jar"):
-                                    file_basename = f"{pid}-{fid}.jar"
-
-                                target_path = os.path.realpath(os.path.join(base_prof, "mods", file_basename))
-                                if not target_path.startswith(base_prof + os.sep):
-                                    return False, f"Project ID: {pid} (Invalid file path)" if en else f"Proje ID: {pid} (Geçersiz dosya yolu)"
-                                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-
-                                with open(target_path, "wb") as f_out:
-                                    f_out.write(fr.content)
-
-                                with lock:
-                                    completed[0] += 1
-                                    _emit_status(
-                                        f"Downloading from CurseForge: {file_basename} ({completed[0]}/{total})"
-                                        if en else
-                                        f"CurseForge'dan İndiriliyor: {file_basename} ({completed[0]}/{total})"
-                                    )
-                                    _emit_val(completed[0], total)
-                                return True, ""
-                            except Exception:
-                                pass
-                        return False, f"Project ID: {pid}" if en else f"Proje ID: {pid}"
-
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                        results = list(executor.map(download_cf_file, files))
-                        for ok, msg in results:
-                            if not ok:
-                                failed_mods.append(msg)
+                    failed_mods.extend(
+                        self._download_archive_entries(
+                            files, True, base_prof, _emit_status, _emit_val, _cancelled, cancel_item_msg, en
+                        )
+                    )
 
                 if _cancelled():
                     rollback_mgr.rollback()
@@ -910,11 +938,90 @@ class ContentCatalog:
                 updates.append((profile_id, art))
         return updates
 
+    @staticmethod
+    def extract_zip_safely(
+        zip_path: str,
+        target_dir: str,
+        pattern: Optional[Callable[[str], bool]] = None,
+        flatten: bool = False,
+    ) -> list[str]:
+        """
+        Safely extracts entries from a zip archive ensuring no path traversal (Zip Slip).
+        Returns a list of extracted file names.
+        """
+        extracted = []
+        real_target = os.path.realpath(target_dir)
+        os.makedirs(real_target, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            for zip_info in zip_ref.infolist():
+                if zip_info.is_dir():
+                    continue
+                filename = zip_info.filename
+                if pattern and not pattern(filename):
+                    continue
+                if flatten:
+                    base_name = os.path.basename(filename)
+                    if not base_name or ".." in base_name:
+                        continue
+                    dest = os.path.realpath(os.path.join(real_target, base_name))
+                    if not (dest.startswith(real_target + os.sep) or dest == real_target):
+                        continue
+                    zip_info.filename = base_name
+                    zip_ref.extract(zip_info, real_target)
+                    extracted.append(base_name)
+                else:
+                    dest = os.path.realpath(os.path.join(real_target, filename))
+                    if not (dest.startswith(real_target + os.sep) or dest == real_target):
+                        continue
+                    zip_ref.extract(zip_info, real_target)
+                    extracted.append(filename)
+        return extracted
+
+    def run_async(
+        self,
+        task_fn: Callable[[], object],
+        on_success: Optional[Callable[[object], None]] = None,
+        on_error: Optional[Callable[[str], None]] = None,
+    ) -> "CatalogTaskRunner":
+        runner = CatalogTaskRunner(task_fn)
+        self._active_runners.append(runner)
+        def _cleanup(*_):
+            if runner in self._active_runners:
+                self._active_runners.remove(runner)
+        runner.task_finished.connect(_cleanup)
+        runner.task_failed.connect(_cleanup)
+        if on_success:
+            runner.task_finished.connect(lambda res=None: on_success(res))
+        if on_error:
+            runner.task_failed.connect(lambda err="": on_error(err))
+        runner.start()
+        return runner
+
 
 DEFAULT_CATALOG = ContentCatalog()
+DEFAULT_CURSEFORGE_CATALOG = ContentCatalog(transport=CurseForgeAPI)
 
 
 # --- Unified Qt Background Task Adapters ---
+
+class CatalogTaskRunner(QThread):
+    """
+    Unified asynchronous task runner for ContentCatalog operations.
+    Hides background thread boilerplate behind a single seam.
+    """
+    task_finished = Signal(object)
+    task_failed = Signal(str)
+
+    def __init__(self, task_fn: Callable[[], object], parent=None):
+        super().__init__(parent)
+        self.task_fn = task_fn
+
+    def run(self):
+        try:
+            res = self.task_fn()
+            self.task_finished.emit(res)
+        except Exception as e:
+            self.task_failed.emit(str(e))
 
 class ModrinthSearchThread(QThread):
     search_finished = Signal(object)
@@ -1006,6 +1113,7 @@ class DownloadModThread(QThread):
         target_root: Optional[str] = None,
         policy: Optional[CompatibilityPolicy] = None,
         catalog: Optional[ContentCatalog] = None,
+        overwrite: bool = False,
         lang: str = "tr",
     ):
         super().__init__()
@@ -1015,6 +1123,7 @@ class DownloadModThread(QThread):
         self.target_root = target_root
         self.policy = policy
         self.catalog = catalog or DEFAULT_CATALOG
+        self.overwrite = overwrite
         self.lang = lang
         self.last_result: Optional[InstallResult] = None
 
@@ -1025,6 +1134,7 @@ class DownloadModThread(QThread):
                 self.target_root,
                 self.policy,
                 project_id=self.project_id,
+                overwrite=self.overwrite,
                 lang=self.lang,
             )
             self.last_result = res

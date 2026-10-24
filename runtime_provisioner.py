@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -14,27 +15,7 @@ from typing import Callable, Optional
 
 from PySide6.QtCore import QThread, Signal
 
-
-def get_java_major_version(java_exe: str) -> Optional[int]:
-    """Inspects a java executable via -version and extracts the major version (e.g. 8, 17, 21)."""
-    if not java_exe or not os.path.isfile(java_exe):
-        return None
-    try:
-        proc = subprocess.run(
-            [java_exe, "-version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=5,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        output = proc.stdout or ""
-        match = re.search(r'version ["\'](?:1\.)?(\d+)', output)
-        if match:
-            return int(match.group(1))
-    except Exception:
-        pass
-    return None
+from java_provisioner import DEFAULT_WINDOWS_JAVA_GLOBS, get_java_major_version
 
 
 def get_required_jvm_info(mc_version: Optional[str], mc_dir: Optional[str] = None) -> tuple[str, int]:
@@ -84,9 +65,69 @@ class RuntimeSpec:
         return self.loader.lower().strip()
 
 
+_NATIVES_PATCHED = False
+_NATIVES_EXTRACT_LOCK = threading.Lock()
+
+
+def ensure_safe_natives_extraction() -> None:
+    """
+    Patches minecraft_launcher_lib's extract_natives_file to serialize native extractions
+    and exclude non-binary META-INF directory structures, preventing Windows
+    [WinError 183] (FileExistsError) race conditions during multi-threaded library installs.
+    """
+    global _NATIVES_PATCHED
+    if _NATIVES_PATCHED:
+        return
+    try:
+        import minecraft_launcher_lib.natives
+        import minecraft_launcher_lib.install
+        import zipfile
+
+        orig_extract = minecraft_launcher_lib.natives.extract_natives_file
+
+        def _safe_extract_natives_file(filename: str, extract_path: str, extract_data: dict) -> None:
+            try:
+                os.makedirs(extract_path, exist_ok=True)
+            except Exception:
+                pass
+
+            excludes = list(extract_data.get("exclude", [])) if isinstance(extract_data, dict) else []
+            if "META-INF" not in excludes:
+                excludes.extend(["META-INF", "META-INF/", "META-INF\\"])
+
+            with _NATIVES_EXTRACT_LOCK:
+                try:
+                    with zipfile.ZipFile(filename, "r") as zf:
+                        for member in zf.namelist():
+                            if any(member.startswith(e) for e in excludes):
+                                continue
+                            try:
+                                zf.extract(member, extract_path)
+                            except FileExistsError:
+                                pass
+                            except Exception as ex:
+                                if "WinError 183" in str(ex):
+                                    pass
+                                else:
+                                    raise
+                except Exception as e:
+                    if "WinError 183" not in str(e):
+                        orig_extract(filename, extract_path, extract_data)
+
+        minecraft_launcher_lib.natives.extract_natives_file = _safe_extract_natives_file
+        minecraft_launcher_lib.install.extract_natives_file = _safe_extract_natives_file
+        _NATIVES_PATCHED = True
+    except Exception:
+        pass
+
+
 class DefaultClientInstallerBackend:
     """Production adapter delegating to minecraft_launcher_lib."""
+    def __init__(self):
+        ensure_safe_natives_extraction()
+
     def install_vanilla(self, version_id: str, mc_dir: str, callback: Optional[dict] = None) -> None:
+        ensure_safe_natives_extraction()
         import minecraft_launcher_lib
         minecraft_launcher_lib.install.install_minecraft_version(version_id, mc_dir, callback=callback)
 
@@ -98,9 +139,17 @@ class DefaultClientInstallerBackend:
         callback: Optional[dict] = None,
         java: Optional[str] = None,
     ) -> str:
+        ensure_safe_natives_extraction()
         import minecraft_launcher_lib
         if not loader_version:
             loader_version = minecraft_launcher_lib.fabric.get_latest_loader_version()
+        if loader_version:
+            leftover_meta_inf = os.path.join(mc_dir, "versions", f"fabric-loader-{loader_version}-{mc_version}", "natives", "META-INF")
+            if os.path.isdir(leftover_meta_inf):
+                try:
+                    shutil.rmtree(leftover_meta_inf, ignore_errors=True)
+                except Exception:
+                    pass
         minecraft_launcher_lib.fabric.install_fabric(mc_version, mc_dir, loader_version=loader_version, callback=callback, java=java)
         return f"fabric-loader-{loader_version}-{mc_version}"
 
@@ -112,6 +161,7 @@ class DefaultClientInstallerBackend:
         callback: Optional[dict] = None,
         java: Optional[str] = None,
     ) -> str:
+        ensure_safe_natives_extraction()
         import minecraft_launcher_lib
         if loader_version:
             minecraft_launcher_lib.quilt.install_quilt(mc_version, mc_dir, loader_version=loader_version, callback=callback, java=java)
@@ -128,6 +178,7 @@ class DefaultClientInstallerBackend:
         callback: Optional[dict] = None,
         java: Optional[str] = None,
     ) -> str:
+        ensure_safe_natives_extraction()
         import minecraft_launcher_lib
         if not forge_version:
             forge_version = minecraft_launcher_lib.forge.find_forge_version(mc_version)
@@ -158,6 +209,7 @@ class DefaultClientInstallerBackend:
         callback: Optional[dict] = None,
         java: Optional[str] = None,
     ) -> str:
+        ensure_safe_natives_extraction()
         import minecraft_launcher_lib.mod_loader
         neo = minecraft_launcher_lib.mod_loader.get_mod_loader("neoforge")
         if not loader_version:
@@ -296,8 +348,189 @@ class RuntimeProvisioner:
             is_server=True,
         )
 
-    def find_system_java(self, min_major: int = 17, preferred: Optional[str] = None) -> Optional[str]:
-        """Locates an existing Java runtime satisfying min_major on the system."""
+    def find_installed_loader_version(
+        self,
+        mc_version_or_dir: Optional[str],
+        loader_or_mc_version: Optional[str] = None,
+        loader: Optional[str] = None,
+        mc_dir: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Scans `<mc_dir>/versions/` to locate an installed engine/loader version ID
+        matching `mc_version` and `loader`.
+        Supports calling as:
+          - `find_installed_loader_version(mc_version, loader, mc_dir=...)`
+          - `find_installed_loader_version(mc_dir, mc_version, loader)`
+        """
+        default_dir = getattr(self, "mc_dir", None) if not isinstance(self, str) else self
+        if loader is not None:
+            target_mc_dir = mc_version_or_dir or mc_dir or default_dir
+            mc_version = str(loader_or_mc_version or "")
+            loader_str = str(loader or "vanilla")
+        else:
+            target_mc_dir = mc_dir or default_dir
+            mc_version = str(mc_version_or_dir or "")
+            loader_str = str(loader_or_mc_version or "vanilla")
+
+        if not target_mc_dir or not mc_version:
+            return None
+        versions_dir = os.path.join(str(target_mc_dir), "versions")
+        if not os.path.isdir(versions_dir):
+            return None
+
+        loader_norm = loader_str.strip().lower()
+        if loader_norm == "vanilla":
+            vanilla_dir = os.path.join(versions_dir, mc_version)
+            return mc_version if os.path.isdir(vanilla_dir) else None
+
+        try:
+            entries = sorted(os.listdir(versions_dir), reverse=True)
+        except OSError:
+            return None
+
+        for entry in entries:
+            full_p = os.path.join(versions_dir, entry)
+            if not os.path.isdir(full_p):
+                continue
+            low = entry.lower()
+            if loader_norm == "fabric" and "fabric" in low and mc_version in low:
+                return entry
+            if loader_norm == "quilt" and "quilt" in low and mc_version in low:
+                return entry
+            if loader_norm == "neoforge" and "neoforge" in low:
+                short_mc = mc_version[2:] if mc_version.startswith("1.") else mc_version
+                if mc_version in low or low.startswith(f"neoforge-{short_mc}."):
+                    return entry
+            if loader_norm == "forge" and "forge" in low and "neoforge" not in low and mc_version in low:
+                return entry
+        return None
+
+    @classmethod
+    def inspect_version_dir(
+        cls,
+        version_name_or_dir: str | Path,
+        version_dir_or_name: Optional[str | Path] = None,
+    ) -> RuntimeSpec:
+        """
+        Inspects a `.minecraft/versions/<id>` directory and its `<id>.json` metadata
+        to determine `(mc_version, loader, loader_version)` as a `RuntimeSpec`.
+        Accepts either `(version_name, version_dir)` or `(versions_dir, version_name)`.
+        """
+        a1 = str(version_name_or_dir)
+        a2 = str(version_dir_or_name or "")
+        if a2 and os.path.isdir(os.path.join(a1, a2)) and not os.path.isfile(os.path.join(a2, f"{a1}.json")):
+            version_name = a2
+            version_dir = os.path.join(a1, a2)
+        elif a2:
+            version_name = a1
+            version_dir = a2
+        else:
+            version_dir = a1
+            version_name = os.path.basename(os.path.normpath(a1))
+
+        loader = "vanilla"
+        mc_version: Optional[str] = None
+        loader_version: Optional[str] = None
+
+        json_path = os.path.join(version_dir, f"{version_name}.json")
+        if os.path.isfile(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8", errors="ignore") as f:
+                    vdata = json.load(f)
+                if isinstance(vdata, dict):
+                    inherits = vdata.get("inheritsFrom")
+                    if isinstance(inherits, str) and inherits.strip():
+                        mc_version = inherits.strip()
+
+                    libs = vdata.get("libraries", [])
+                    if isinstance(libs, list):
+                        for lib in libs:
+                            if not isinstance(lib, dict):
+                                continue
+                            lib_name = str(lib.get("name", ""))
+                            lib_low = lib_name.lower()
+                            parts = lib_name.split(":")
+                            ver_part = parts[2] if len(parts) >= 3 else None
+                            if "neoforge" in lib_low:
+                                loader = "neoforge"
+                                if ver_part and not loader_version:
+                                    loader_version = ver_part
+                                break
+                            if "minecraftforge" in lib_low or "net.minecraftforge:forge" in lib_low:
+                                loader = "forge"
+                                if ver_part and not loader_version:
+                                    loader_version = ver_part
+                                break
+                            if "fabricmc" in lib_low or "fabric-loader" in lib_low:
+                                loader = "fabric"
+                                if ver_part and not loader_version:
+                                    loader_version = ver_part
+                                break
+                            if "quiltmc" in lib_low or "quilt-loader" in lib_low:
+                                loader = "quilt"
+                                if ver_part and not loader_version:
+                                    loader_version = ver_part
+                                break
+
+                    if not mc_version:
+                        raw_id = vdata.get("id")
+                        if isinstance(raw_id, str):
+                            mc_version = cls.extract_base_version(raw_id, default=None)
+            except Exception:
+                pass
+
+        low_name = version_name.lower()
+        if not loader_version:
+            m_fab = re.match(r"^fabric-loader-([0-9\.\w\-]+)-([0-9\.]+)$", version_name, re.IGNORECASE)
+            m_quilt = re.match(r"^quilt-loader-([0-9\.\w\-]+)-([0-9\.]+)$", version_name, re.IGNORECASE)
+            m_forge = re.match(r"^([0-9\.]+)-forge-([0-9\.\w\-]+)$", version_name, re.IGNORECASE)
+            m_neo = re.match(r"^neoforge-([0-9\.\w\-]+)$", version_name, re.IGNORECASE)
+            if m_fab:
+                loader = "fabric"
+                loader_version = m_fab.group(1)
+                if not mc_version:
+                    mc_version = m_fab.group(2)
+            elif m_quilt:
+                loader = "quilt"
+                loader_version = m_quilt.group(1)
+                if not mc_version:
+                    mc_version = m_quilt.group(2)
+            elif m_forge:
+                loader = "forge"
+                loader_version = m_forge.group(2)
+                if not mc_version:
+                    mc_version = m_forge.group(1)
+            elif m_neo:
+                loader = "neoforge"
+                loader_version = m_neo.group(1)
+
+        if loader == "vanilla":
+            if "neoforge" in low_name:
+                loader = "neoforge"
+            elif "forge" in low_name:
+                loader = "forge"
+            elif "fabric" in low_name:
+                loader = "fabric"
+            elif "quilt" in low_name:
+                loader = "quilt"
+
+        if not mc_version:
+            mc_version = cls.extract_base_version(version_name, default=None) or version_name
+
+        return RuntimeSpec(
+            mc_version=mc_version,
+            loader=loader,
+            loader_version=loader_version,
+            is_server=False,
+        )
+
+    def find_system_java(
+        self,
+        min_major: int = 17,
+        preferred: Optional[str] = None,
+        strict_major: Optional[int] = None,
+    ) -> Optional[str]:
+        """Locates an existing Java runtime satisfying min_major (or strict generation) on the system."""
         candidates = []
         if preferred and os.path.isfile(preferred):
             candidates.append(preferred)
@@ -313,16 +546,7 @@ class RuntimeProvisioner:
                 candidates.append(jh_bin)
 
         if os.name == "nt":
-            globs = [
-                r"C:\Program Files\Microsoft\jdk-*\bin\java.exe",
-                r"C:\Program Files\Eclipse Adoptium\jdk-*\bin\java.exe",
-                r"C:\Program Files\Java\jdk-*\bin\java.exe",
-                r"C:\Program Files\Amazon Corretto\jdk-*\bin\java.exe",
-                r"C:\Program Files\Zulu\*\bin\java.exe",
-                r"C:\Program Files\BellSoft\LibericaJDK-*\bin\java.exe",
-                r"C:\Program Files (x86)\Java\jre*\bin\java.exe",
-            ]
-            for pat in globs:
+            for pat in DEFAULT_WINDOWS_JAVA_GLOBS:
                 matches = glob.glob(pat)
                 if matches:
                     candidates.extend(reversed(sorted(matches)))
@@ -334,7 +558,16 @@ class RuntimeProvisioner:
                 continue
             seen.add(norm)
             major = get_java_major_version(cand)
-            if major is not None and major >= min_major:
+            if major is None:
+                continue
+            if strict_major is not None:
+                if strict_major == 8 and major == 8:
+                    return cand
+                if strict_major in (16, 17) and major in (16, 17):
+                    return cand
+                if strict_major >= 21 and major >= 21:
+                    return cand
+            elif major >= min_major:
                 return cand
 
         return None
@@ -360,6 +593,15 @@ class RuntimeProvisioner:
         component, req_major = get_required_jvm_info(mc_version, target_mc_dir)
         en = lang == "en"
 
+        # 0. Check if portable Temurin runtime is already installed
+        try:
+            from java_provisioner import DEFAULT_JAVA_PROVISIONER
+            temurin_exe = DEFAULT_JAVA_PROVISIONER.find_portable_temurin(req_major, target_mc_dir)
+            if temurin_exe and os.path.isfile(temurin_exe):
+                return temurin_exe
+        except Exception:
+            pass
+
         # 1. Check if Mojang runtime is already installed in target_mc_dir or default mc_dir
         for candidate_dir in [target_mc_dir, os.path.join(os.getenv("APPDATA", ""), ".minecraft")]:
             if candidate_dir:
@@ -370,10 +612,18 @@ class RuntimeProvisioner:
                 except Exception:
                     pass
 
-        # 2. Check if a suitable system Java exists (satisfying req_major)
-        sys_java = self.find_system_java(min_major=req_major, preferred=preferred_java)
+        # 2. Check if a suitable system Java exists (satisfying strict generation match for req_major)
+        try:
+            sys_java = self.find_system_java(
+                min_major=req_major,
+                preferred=preferred_java,
+                strict_major=req_major,
+            )
+        except TypeError:
+            sys_java = self.find_system_java(min_major=req_major, preferred=preferred_java)
         if sys_java:
             return sys_java
+
 
         # 3. Clean machine / sandbox: Automatically provision Mojang runtime
         status_msg = (
@@ -703,6 +953,8 @@ class RuntimeProvisioner:
 
 
 DEFAULT_PROVISIONER = RuntimeProvisioner()
+DEFAULT_RUNTIME_PROVISIONER = DEFAULT_PROVISIONER
+
 
 
 # --- Reusable Qt Thread Adapter ---

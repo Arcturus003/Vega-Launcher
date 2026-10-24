@@ -68,6 +68,13 @@ class SyncDiff:
     removed: int = 0
 
 
+@dataclass(frozen=True)
+class PlayerStatus:
+    name: str
+    online: bool
+    op: bool
+
+
 class ServerInstance:
     """
     Deep module representing a local Minecraft server directory (`servers/<name>/`).
@@ -332,6 +339,59 @@ class ServerInstance:
         with open(props_file, "w", encoding="utf-8") as f:
             f.writelines(updated_lines)
 
+    def read_raw_properties(self) -> dict[str, str]:
+        """Read all raw key-value pairs from server.properties into a dictionary."""
+        props: dict[str, str] = {}
+        if not self.server_dir:
+            return props
+        prop_path = os.path.join(self.server_dir, "server.properties")
+        if not os.path.isfile(prop_path):
+            return props
+        try:
+            with open(prop_path, "r", encoding="utf-8", errors="replace") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    props[k.strip()] = v.strip()
+        except Exception:
+            pass
+        return props
+
+    def update_raw_properties(self, updates: dict[str, Any]) -> dict[str, str]:
+        """Atomically update arbitrary key-value settings in server.properties."""
+        if not self.server_dir:
+            return {}
+        prop_path = os.path.join(self.server_dir, "server.properties")
+        lines: list[str] = []
+        existing_keys: set[str] = set()
+        if os.path.isfile(prop_path):
+            with open(prop_path, "r", encoding="utf-8", errors="replace") as f:
+                for raw_line in f:
+                    stripped = raw_line.strip()
+                    if stripped and not stripped.startswith("#") and "=" in stripped:
+                        k, _ = stripped.split("=", 1)
+                        key = k.strip()
+                        if key in updates:
+                            lines.append(f"{key}={updates[key]}\n")
+                            existing_keys.add(key)
+                        else:
+                            lines.append(raw_line if raw_line.endswith("\n") else raw_line + "\n")
+                    else:
+                        lines.append(raw_line if raw_line.endswith("\n") else raw_line + "\n")
+
+        for k, v in updates.items():
+            if k not in existing_keys:
+                lines.append(f"{k}={v}\n")
+
+        os.makedirs(os.path.dirname(os.path.abspath(prop_path)), exist_ok=True)
+        tmp_path = f"{prop_path}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        os.replace(tmp_path, prop_path)
+        return self.read_raw_properties()
+
     def list_known_players(self) -> set[str]:
         known: set[str] = set()
         if not self.server_dir:
@@ -368,6 +428,18 @@ class ServerInstance:
                 pass
         return False
 
+    def get_player_statuses(self, online_players: Optional[set[str]] = None) -> list[PlayerStatus]:
+        online_set = set(online_players or ())
+        known = self.list_known_players()
+        all_names = set(online_set) | known
+
+        statuses = []
+        for name in sorted(all_names, key=lambda n: (n not in online_set, n.lower())):
+            is_online = name in online_set
+            is_op = self.is_player_op(name)
+            statuses.append(PlayerStatus(name=name, online=is_online, op=is_op))
+        return statuses
+
     def count_content_and_backups(self) -> tuple[int, int]:
         if not self.server_dir or not os.path.exists(self.server_dir):
             return 0, 0
@@ -376,14 +448,14 @@ class ServerInstance:
             mdir = os.path.join(self.server_dir, sub)
             if os.path.exists(mdir):
                 try:
-                    mod_cnt += sum(1 for f in os.listdir(mdir) if f.endswith(".jar"))
+                    mod_cnt += sum(1 for f in os.listdir(mdir) if f.lower().endswith(".jar"))
                 except Exception:
                     pass
         bkp_cnt = 0
         bdir = os.path.join(self.server_dir, "backups")
         if os.path.exists(bdir):
             try:
-                bkp_cnt = sum(1 for f in os.listdir(bdir) if f.endswith(".zip"))
+                bkp_cnt = sum(1 for f in os.listdir(bdir) if f.lower().endswith(".zip"))
             except Exception:
                 pass
         return mod_cnt, bkp_cnt

@@ -41,6 +41,12 @@ class ServerConsoleParser:
     def clear_history(self) -> None:
         self._history.clear()
 
+    def reset(self) -> None:
+        """Reset parser history and state."""
+        self.clear_history()
+        self._opened_claim_links.clear()
+        self._last_detected_ip = None
+
     @staticmethod
     def classify_log_level(text: str) -> str:
         """Classify message level for filtering: ERROR, WARN, INFO, or NORMAL."""

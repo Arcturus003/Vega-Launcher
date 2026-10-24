@@ -92,6 +92,84 @@ class GameLaunchPipeline:
             return "fabric"
         return "vanilla"
 
+    def evaluate_readiness(
+        self,
+        profile_id_or_data: str | dict,
+        profile_data: Optional[dict] = None,
+        auth_session: Optional[dict] = None,
+        settings: Optional[dict] = None,
+        custom_java_path: str = "",
+        java_provisioner: Any = None,
+    ) -> dict[str, Any]:
+        """
+        Pre-flight launch readiness evaluation.
+        Resolves required Java major version and compatible Java executable via JavaProvisioner,
+        checks whether the target version/loader is installed in `.minecraft/versions/`,
+        and builds launch options when ready.
+        """
+        if isinstance(profile_id_or_data, dict) and profile_data is None:
+            pdata = profile_id_or_data
+            profile_id = str(pdata.get("id") or pdata.get("name") or "")
+        else:
+            profile_id = str(profile_id_or_data or "")
+            pdata = dict(profile_data or {})
+
+        settings = dict(settings or {})
+        auth_session = dict(auth_session or {})
+        version = str(pdata.get("version") or "")
+        game_dir = str(pdata.get("path") or "")
+
+        from java_provisioner import DEFAULT_JAVA_PROVISIONER
+        from runtime_provisioner import RuntimeProvisioner
+
+        prov = java_provisioner or DEFAULT_JAVA_PROVISIONER
+        user_java = (custom_java_path or settings.get("java_path") or "").strip() or None
+        req_major, resolved_java = prov.resolve_java_runtime(
+            mc_version=version,
+            mc_dir=self.mc_dir,
+            custom_java=user_java,
+        )
+
+        engine_installed = self.is_engine_installed(version) if version else False
+        is_loader = self.is_loader_version(version)
+        explicit_loader = (pdata.get("loader") or "").strip().lower()
+        loader_type = explicit_loader if explicit_loader and explicit_loader != "vanilla" else self.detect_loader_type(version)
+        base_version = RuntimeProvisioner.extract_base_version(version, default=version) or version
+
+        def_ram = int(settings.get("default_ram", 4096) or 4096)
+        ram_mb = int(pdata.get("ram", def_ram) or def_ram)
+        extra_jvm = settings.get("jvm_args", "")
+
+        options = self.build_launch_options(
+            auth_session=auth_session,
+            game_directory=game_dir,
+            ram_mb=ram_mb,
+            extra_jvm=extra_jvm,
+            java_path=resolved_java,
+        )
+
+        if not resolved_java:
+            status = "missing_java"
+        elif not engine_installed:
+            status = "missing_loader" if (is_loader or loader_type != "vanilla") else "missing_vanilla"
+        else:
+            status = "ready"
+
+        return {
+            "ready": status == "ready",
+            "status": status,
+            "profile_id": profile_id,
+            "version": version,
+            "base_version": base_version,
+            "required_java_major": req_major,
+            "resolved_java": resolved_java,
+            "custom_java_incompatible": bool(user_java and os.path.isfile(user_java) and resolved_java != user_java),
+            "engine_installed": engine_installed,
+            "is_loader": is_loader,
+            "loader_type": loader_type,
+            "options": options,
+        }
+
     def launch(
         self,
         profile_id: str,
@@ -159,3 +237,4 @@ class GameLaunchPipeline:
 
 
 DEFAULT_LAUNCH_PIPELINE = GameLaunchPipeline()
+
