@@ -29,6 +29,8 @@ FALLBACK_VERSIONS: List[Dict[str, str]] = [
     {"version": "1.12.2", "type": "release"},
     {"version": "1.8.9", "type": "release"},
     {"version": "1.7.10", "type": "release"},
+    {"version": "24w40a", "type": "snapshot"},
+    {"version": "1.21.2-pre1", "type": "snapshot"},
     {"version": "b1.7.3", "type": "old_beta"},
     {"version": "a1.2.6", "type": "old_alpha"},
 ]

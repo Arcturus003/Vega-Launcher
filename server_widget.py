@@ -1808,8 +1808,8 @@ class ServerWidget(QWidget):
             self.online_players = set()
             
         self.player_list.clear()
-        inst = self._get_server_instance() if self.server_dir else None
-        statuses = inst.get_player_statuses(getattr(self, "online_players", set())) if inst else []
+        inst = self._get_server_instance()
+        statuses = inst.get_player_statuses(getattr(self, "online_players", set()))
 
         online_tag = "Online" if en else "Çevrimiçi"
         offline_tag = "Offline" if en else "Çevrimdışı"

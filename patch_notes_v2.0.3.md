@@ -15,6 +15,7 @@
 
 **Hata Düzeltmeleri**
 - Derleme çıktılarında PyInstaller WebEngine uyumsuzlukları giderildi.
+- Sunucu oyuncu listesi ve profil ekleme diyalogundaki çevrimdışı filtreleme dayanıklılığı artırıldı.
 - Token yenileme ve doğrulama iş parçacıklarının senkronizasyon hataları düzeltildi.
 
 *Karşılaştığınız diğer sorunları GitHub Issues üzerinden iletmeyi unutmayın.*
@@ -34,6 +35,7 @@
 
 **Bug Fixes**
 - Resolved PyInstaller WebEngine exclusion and binary packaging conflicts.
+- Hardened server player list rendering and profile dialog version filtering under offline/headless environments.
 - Fixed thread synchronization edge cases during token refresh and session validation.
 
 *If you run into any issues, please submit a report on GitHub Issues.*
@@ -41,4 +43,4 @@
 ---
 
 **Doğrulama Özeti / Verification Checksum:**
-- `SHA256: ffd803103c89ea9d23be68cee330ea4f85fa88e8d146262683fe28acfceb2171`
+- `SHA256: 59af934f62f24d6cfbebbef798c72178770ee2d62102635c2899b642346a9b5c`

@@ -1,6 +1,6 @@
 {
     "main.py": "1d6012fa4160f92f603b04fbcd6970fb6ed2da7a10a85ea770e5a6dfbdc282bb",
-    "server_widget.py": "4b5abaec85df55dc9ab7a49c42de6c65e01cf2f434e751323fad7944a40b578a",
+    "server_widget.py": "2ecea596afaa38f6f7ba7cd2e0d38d96f3a30f123d929007224b275ba4cb32c4",
     "card_widget.py": "2c36d1afd9b2bbee31d7a22525a54d472d47b449078891cb8305648728556f8f",
     "mod_manager.py": "03a42e78e2c78064ac50fd2bcb789ac0c22546769ccee3159b9b78f9736d8a0a",
     "engine_installer.py": "1405f8542ad41196ad8859adc03fdcdf4a83da51a50687ad2dd5b9401e3ed277",
@@ -24,7 +24,7 @@
     "server_console_parser.py": "abbede7abe1f6310d85482837bf7b9cf12d159589a5b1c4c9256b5f6d31f81b3",
     "auth_vault.py": "f2aeb84c324a536de955c21d8031a0ec9a13df6da18ba86a56e24c7e4fc08e4a",
     "server_process_coordinator.py": "57d2c580060f32251e4f34e8076786627084e5af3c927d3435f897ae750c31d1",
-    "prism_meta_provider.py": "75c8292b172b9bc1fba50d98417d54d72f9ce262eba7ee40e910a9784177919b",
+    "prism_meta_provider.py": "ea2599dbe9c7cace4a1a5a17d8936e8656ef8b9c548301ea0f5589de2175706d",
     "prism_instance_importer.py": "814135a2abdd5bf32f620d28b58e55df9e2fa8d5e5e4ac7caece249391efe685",
     "curseforge_api.py": "4f272258e6a5d2da7dfc3d941f2d647477666cede514a77211daad4e684b7269",
     "crash_analyzer.py": "8b95dfdc58159a412e026cd0ff0f6547bea476f827ea835b9214489da61d587e",
