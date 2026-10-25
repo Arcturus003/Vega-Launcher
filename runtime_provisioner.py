@@ -212,14 +212,15 @@ class DefaultClientInstallerBackend:
         ensure_safe_natives_extraction()
         import minecraft_launcher_lib.mod_loader
         neo = minecraft_launcher_lib.mod_loader.get_mod_loader("neoforge")
-        if not loader_version:
-            loader_version = neo.get_latest_loader_version(mc_version)
-            if not loader_version:
+        clean_loader = re.sub(r"^neoforge[-_]?", "", loader_version, flags=re.IGNORECASE).strip() if loader_version else None
+        if not clean_loader:
+            clean_loader = neo.get_latest_loader_version(mc_version)
+            if not clean_loader:
                 raise Exception(f"NeoForge {mc_version} için bulunamadı veya desteklenmiyor.")
-        installed_ver = neo.install(mc_version, loader_version, mc_dir, callback=callback, java=java)
+        installed_ver = neo.install(mc_version, mc_dir, loader_version=clean_loader, callback=callback, java=java)
         if not installed_ver:
-            installed_ver = neo.get_installed_version(mc_version, loader_version)
-        return installed_ver if installed_ver else f"neoforge-{loader_version}-{mc_version}"
+            installed_ver = neo.get_installed_version(mc_version, clean_loader)
+        return installed_ver if installed_ver else f"neoforge-{clean_loader}"
 
 
 class RuntimeProvisioner:

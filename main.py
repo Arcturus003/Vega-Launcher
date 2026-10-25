@@ -2,7 +2,7 @@ __app_name__ = "Vega Launcher"
 
 __author__ = "Arcturus"
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 __copyright__ = "© 2026 Arcturus. All rights reserved."
 
@@ -5217,32 +5217,22 @@ class VegaLauncher(QMainWindow):
 
 
     def _refresh_account_status_label(self):
-
-        acc_name = (getattr(self, "ms_login", {}) or {}).get("name")
-
+        acc_dict = getattr(self, "ms_login", {}) or {}
+        acc_name = acc_dict.get("name")
+        acc_type = acc_dict.get("type", "ms")
         if hasattr(self, "nav_bar") and hasattr(self.nav_bar, "update_user"):
-
             self.nav_bar.update_user(acc_name, bool(acc_name))
-
         if not hasattr(self, "lbl_acc_status"):
-
             return
-
         lang = (getattr(self, "settings", {}) or {}).get("language", "tr")
-
         if acc_name:
-
-            self.lbl_acc_status.setText(f"{'Active Account' if lang == 'en' else 'Aktif Hesap'}: {acc_name}")
-
-            self.lbl_acc_status.setStyleSheet("font-size: 13px; font-weight: 700; color: #34D399; background: transparent;")
-
+            type_label = " (Offline)" if (lang == "en" and acc_type == "offline") else (" (Çevrimdışı)" if acc_type == "offline" else " (Microsoft)")
+            color = "#38BDF8" if acc_type == "offline" else "#34D399"
+            self.lbl_acc_status.setText(f"{'Active Account' if lang == 'en' else 'Aktif Hesap'}: {acc_name}{type_label}")
+            self.lbl_acc_status.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {color}; background: transparent;")
         else:
-
-            self.lbl_acc_status.setText("Not Logged In (Microsoft)" if lang == "en" else "Giriş Yapılmadı (Microsoft Hesabı Yok)")
-
+            self.lbl_acc_status.setText("Not Logged In" if lang == "en" else "Giriş Yapılmadı")
             self.lbl_acc_status.setStyleSheet("font-size: 13px; font-weight: 600; color: #94A3B8; background: transparent;")
-
-
 
     def _on_theme_changed(self):
 
@@ -7168,9 +7158,11 @@ oLink.Save
 
                 candidates.append(d)
 
-            elif loader == "neoforge" and "neoforge" in d_lower and mc_version in d:
-
-                candidates.append(d)
+            elif loader == "neoforge" and "neoforge" in d_lower:
+                m = re.match(r"^1\.(\d+)(?:\.(\d+))?$", mc_version)
+                prefix = f"{m.group(1)}.{m.group(2) or '0'}." if m else ""
+                if (mc_version in d) or (prefix and prefix in d):
+                    candidates.append(d)
 
             elif loader == "forge" and "forge" in d_lower and "neoforge" not in d_lower and mc_version in d:
 
@@ -8701,6 +8693,14 @@ oLink.Save
 
 
             # Fast offline check: if network is down, avoid HTTP timeouts and launch immediately with cached session
+
+            if self.ms_login.get("type") == "offline":
+                self.statusBar().showMessage(
+                    "Launching in offline mode..." if en else "Çevrimdışı modda başlatılıyor...",
+                    2000
+                )
+                self._continue_launch(pid, pdata)
+                return
 
             if hasattr(self, 'auth_vault') and not self.auth_vault.is_network_available():
 

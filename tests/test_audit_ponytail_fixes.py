@@ -257,6 +257,70 @@ class TestAuditPonytailFixes(unittest.TestCase):
         for g in globs:
             self.assertTrue(g.endswith("java.exe") or g.endswith("javaw.exe"))
 
+    def test_default_client_installer_neoforge_signature(self):
+        """Verify DefaultClientInstallerBackend.install_neoforge conforms to ModLoader.install signature."""
+        from runtime_provisioner import DefaultClientInstallerBackend
+        from unittest.mock import MagicMock, patch
+
+        backend = DefaultClientInstallerBackend()
+        mock_neo = MagicMock()
+        mock_neo.install.return_value = "neoforge-21.1.65"
+        with patch("minecraft_launcher_lib.mod_loader.get_mod_loader", return_value=mock_neo):
+            res = backend.install_neoforge(
+                "1.21.1",
+                "/fake/mc",
+                loader_version="neoforge-21.1.65",
+                callback={"setStatus": lambda s: None},
+                java="/fake/bin/java.exe",
+            )
+            self.assertEqual(res, "neoforge-21.1.65")
+            mock_neo.install.assert_called_once()
+            args, kwargs = mock_neo.install.call_args
+            self.assertEqual(args, ("1.21.1", "/fake/mc"))
+            self.assertEqual(kwargs.get("loader_version"), "21.1.65")
+            self.assertEqual(kwargs.get("java"), "/fake/bin/java.exe")
+
+    def test_neoforge_install_with_real_modloader_no_typeerror(self):
+        """Verify real ModLoader.install does not raise TypeError regarding argument counts."""
+        from runtime_provisioner import DefaultClientInstallerBackend
+        from minecraft_launcher_lib.mod_loader import get_mod_loader
+        from unittest.mock import MagicMock, patch
+
+        backend = DefaultClientInstallerBackend()
+        neo = get_mod_loader("neoforge")
+        with patch.object(neo, "_base") as mock_base, \
+             patch("minecraft_launcher_lib.mod_loader.is_version_valid", return_value=True), \
+             patch("minecraft_launcher_lib.mod_loader.install_minecraft_version"):
+            mock_base.install = MagicMock()
+            mock_base.get_minecraft_versions = MagicMock(return_value=["1.21.1"])
+            mock_base.get_installed_version = MagicMock(return_value="neoforge-21.1.65")
+            with patch("minecraft_launcher_lib.mod_loader.get_mod_loader", return_value=neo):
+                res = backend.install_neoforge("1.21.1", "/fake/mc", loader_version="21.1.65", java="java")
+                self.assertEqual(res, "neoforge-21.1.65")
+
+    def test_find_installed_engine_version_modern_neoforge(self):
+        """Verify _find_installed_engine_version finds modern NeoForge directory without MC version in folder name."""
+        from main import VegaLauncher
+        import tempfile
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            versions_dir = os.path.join(tmp_dir, "versions")
+            os.makedirs(os.path.join(versions_dir, "neoforge-21.1.65"), exist_ok=True)
+            os.makedirs(os.path.join(versions_dir, "neoforge-20.4.80"), exist_ok=True)
+
+            mock_launcher = MagicMock()
+            mock_launcher.mc_dir = tmp_dir
+            # For 1.21.1 -> should match neoforge-21.1.65
+            found = VegaLauncher._find_installed_engine_version(mock_launcher, "1.21.1", "neoforge")
+            self.assertEqual(found, "neoforge-21.1.65")
+
+            # For 1.20.4 -> should match neoforge-20.4.80
+            found_204 = VegaLauncher._find_installed_engine_version(mock_launcher, "1.20.4", "neoforge")
+            self.assertEqual(found_204, "neoforge-20.4.80")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()
