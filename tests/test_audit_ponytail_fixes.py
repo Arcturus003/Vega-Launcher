@@ -321,6 +321,188 @@ class TestAuditPonytailFixes(unittest.TestCase):
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
+    def test_curseforge_modpack_loader_neoforge_and_quilt(self):
+        """Verify CurseForge modpack installer dispatches to loader_installer for neoforge and quilt."""
+        import tempfile
+        import zipfile
+        import json
+        from mod_manager import ContentCatalog
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            mock_installer = MagicMock()
+            mock_installer.install.return_value = "neoforge-21.1.65"
+            catalog = ContentCatalog(mc_dir=tmp_dir, loader_installer=mock_installer)
+
+            # Test NeoForge CurseForge zip
+            neo_zip = os.path.join(tmp_dir, "test_neo.zip")
+            with zipfile.ZipFile(neo_zip, "w") as zf:
+                zf.writestr("manifest.json", json.dumps({
+                    "minecraft": {
+                        "version": "1.21.1",
+                        "modLoaders": [{"id": "neoforge-21.1.65", "primary": True}]
+                    },
+                    "files": []
+                }))
+
+            prof_dir = os.path.join(tmp_dir, "test_profile")
+            os.makedirs(prof_dir, exist_ok=True)
+            res = catalog.install_modpack(prof_dir, neo_zip, is_local=True)
+            self.assertTrue(res.ok)
+            mock_installer.install.assert_called_with("1.21.1", "neoforge", "21.1.65", tmp_dir, on_progress=unittest.mock.ANY)
+
+            # Test Quilt CurseForge zip
+            mock_installer.reset_mock()
+            mock_installer.install.return_value = "quilt-0.25.0"
+            quilt_zip = os.path.join(tmp_dir, "test_quilt.zip")
+            with zipfile.ZipFile(quilt_zip, "w") as zf:
+                zf.writestr("manifest.json", json.dumps({
+                    "minecraft": {
+                        "version": "1.20.1",
+                        "modLoaders": [{"id": "quilt-0.25.0", "primary": True}]
+                    },
+                    "files": []
+                }))
+            res_q = catalog.install_modpack(prof_dir, quilt_zip, is_local=True)
+            self.assertTrue(res_q.ok)
+            mock_installer.install.assert_called_with("1.20.1", "quilt", "0.25.0", tmp_dir, on_progress=unittest.mock.ANY)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_auth_vault_dpapi_handling_and_metadata_retention(self):
+        """Verify auth_vault decrypts DPAPI tokens safely and merges refresh response with existing metadata."""
+        from auth_vault import AuthenticationVault
+
+        # Encrypted token in ms_login
+        raw_account = {
+            "name": "Alex",
+            "type": "msa",
+            "access_token": AuthenticationVault.encrypt_secret("valid_raw_access_token"),
+            "refresh_token": AuthenticationVault.encrypt_secret("valid_raw_refresh_token"),
+            "custom_meta": "persisted",
+        }
+
+        mock_http = MagicMock()
+        mock_http.get.return_value = MagicMock(status_code=200)
+
+        res = AuthenticationVault.validate_or_refresh_session(raw_account, transport=mock_http)
+        self.assertEqual(res["status"], "ok")
+        # Ensure raw dpapi:... was NOT transmitted in Authorization header
+        call_headers = mock_http.get.call_args[1]["headers"]
+        self.assertEqual(call_headers["Authorization"], "Bearer valid_raw_access_token")
+
+        # Now test refresh flow and dictionary merge retaining non-credential metadata
+        mock_http.get.return_value = MagicMock(status_code=401)
+        mock_refresh = MagicMock(return_value={"access_token": "new_access", "refresh_token": "new_refresh"})
+        res_refresh = AuthenticationVault.validate_or_refresh_session(raw_account, transport=mock_http, refresh_fn=mock_refresh)
+        self.assertEqual(res_refresh["status"], "ok")
+        refreshed = res_refresh["refreshed_login"]
+        self.assertEqual(refreshed["access_token"], "new_access")
+        merged = dict(raw_account)
+        merged.update(refreshed)
+        self.assertEqual(merged["name"], "Alex")
+        self.assertEqual(merged["type"], "msa")
+        self.assertEqual(merged["custom_meta"], "persisted")
+
+    def test_crash_analyzer_case_insensitive_jars(self):
+        """Verify crash_analyzer detects .JAR files regardless of casing."""
+        from crash_analyzer import CrashAnalyzer
+        import tempfile
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            mods_dir = os.path.join(tmp_dir, "mods")
+            os.makedirs(mods_dir, exist_ok=True)
+            with open(os.path.join(mods_dir, "Create-1.21.1.JAR"), "w") as f:
+                f.write("jar")
+
+            log_text = "MixinApplyError: create.mixins.json failed to apply"
+            report = CrashAnalyzer.analyze_text(log_text, profile_root=tmp_dir)
+            self.assertEqual(report.culprit_file, "Create-1.21.1.JAR")
+            self.assertIn("Create-1.21.1.JAR", str(report.culprit_path))
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_server_downloader_version_list(self):
+        """Verify server_downloader includes 1.20.6."""
+        from server_downloader import ServerSoftwareDialog
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance() or QApplication([])
+        dialog = ServerSoftwareDialog()
+        items = [dialog.combo_version.itemText(i) for i in range(dialog.combo_version.count())]
+        self.assertIn("1.20.6", items)
+        dialog.deleteLater()
+
+    def test_launch_options_dynamic_launcher_version(self):
+        """Verify launch_pipeline sets launcherVersion to current release."""
+        from launch_pipeline import GameLaunchPipeline
+
+        pipeline = GameLaunchPipeline()
+        opts = pipeline.build_launch_options(
+            auth_session={"name": "Player"},
+            game_directory="/fake/path",
+        )
+        self.assertEqual(opts.get("launcherVersion"), "2.0.4")
+
+    def test_content_browser_search_epoch_rejection(self):
+        """Verify ModrinthBrowser discards stale search results from earlier epochs."""
+        from content_browser import ModrinthBrowser
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance() or QApplication([])
+        browser = ModrinthBrowser(project_type="modpack")
+        browser._search_epoch = 5
+
+        # Create mock thread with older epoch
+        mock_thread = MagicMock()
+        mock_thread._search_epoch = 4
+        browser._search_thread = mock_thread
+        browser.sender = lambda: mock_thread
+
+        with patch.object(browser, "populate") as mock_populate:
+            browser.on_search_finished([{"id": "stale"}])
+            mock_populate.assert_not_called()
+
+        # Sender matching current epoch should populate
+        mock_thread._search_epoch = 5
+        with patch.object(browser, "populate") as mock_populate:
+            browser.on_search_finished([{"id": "fresh"}])
+            mock_populate.assert_called_once()
+        browser.deleteLater()
+
+    def test_modpack_installer_empty_loader_version_fallback(self):
+        """Verify CurseForge modpack with empty loader version (e.g. 'fabric-') defaults to latest loader."""
+        import tempfile
+        import zipfile
+        import json
+        from mod_manager import ContentCatalog
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            mock_installer = MagicMock()
+            mock_installer.install.return_value = "fabric-loader-0.16.0-1.20.1"
+            catalog = ContentCatalog(mc_dir=tmp_dir, loader_installer=mock_installer)
+
+            pack_zip = os.path.join(tmp_dir, "test_empty_loader.zip")
+            with zipfile.ZipFile(pack_zip, "w") as zf:
+                zf.writestr("manifest.json", json.dumps({
+                    "minecraft": {
+                        "version": "1.20.1",
+                        "modLoaders": [{"id": "fabric-", "primary": True}]
+                    },
+                    "files": []
+                }))
+
+            prof_dir = os.path.join(tmp_dir, "test_profile")
+            os.makedirs(prof_dir, exist_ok=True)
+            res = catalog.install_modpack(prof_dir, pack_zip, is_local=True)
+            self.assertTrue(res.ok)
+            # Empty version after 'fabric-' should be converted to None (not empty string)
+            mock_installer.install.assert_called_with("1.20.1", "fabric", None, tmp_dir, on_progress=unittest.mock.ANY)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

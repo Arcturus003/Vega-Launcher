@@ -207,7 +207,7 @@ class TestProfileAndConfigStore(unittest.TestCase):
             self.assertIsNone(store.find_client_profile_for_server("Other_Server"))
 
     def test_cross_machine_dpapi_fallback_and_rebind(self):
-        from auth_window import _dpapi_decrypt_raw, needs_rebind_token, protect_token, unprotect_token
+        from auth_window import needs_rebind_token, protect_token, unprotect_token
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             data_dir = os.path.join(tmp_dir, ".vega_launcher")
@@ -240,7 +240,7 @@ class TestProfileAndConfigStore(unittest.TestCase):
             self.assertEqual(ms_login["access_token"], "strict_dpapi_access_token")
             rebound_raw = store.read_raw_config()["ms_login"]["access_token"]
             self.assertFalse(needs_rebind_token(rebound_raw))
-            self.assertEqual(_dpapi_decrypt_raw(rebound_raw[6:]), "strict_dpapi_access_token")
+            self.assertEqual(unprotect_token(rebound_raw), "strict_dpapi_access_token")
 
             # 2. Foreign machine DPAPI blob cannot be decrypted even if a portable suffix is attached
             foreign_blob = "dpapi:FOREIGN_USER_DPAPI_BLOB.ATTACKER_PORTABLE_SUFFIX"

@@ -405,22 +405,24 @@ class JavaProvisioner:
             if zipfile.is_zipfile(temp_zip):
                 with zipfile.ZipFile(temp_zip, "r") as zf:
                     target_real = os.path.realpath(target_dir)
+                    target_prefix = target_real + os.sep
                     for member in zf.infolist():
                         if is_cancelled and is_cancelled():
                             raise Exception("Extraction cancelled by user." if en else "Ayıklama kullanıcı tarafından iptal edildi.")
                         # Safe zip extraction against Zip Slip
                         extracted_path = os.path.realpath(os.path.join(target_dir, member.filename))
-                        if not extracted_path.startswith(target_real):
+                        if not (extracted_path.startswith(target_prefix) or extracted_path == target_real):
                             raise RuntimeError(f"Zip slip security error detected for {member.filename}")
                         zf.extract(member, target_dir)
             elif tarfile.is_tarfile(temp_zip):
                 with tarfile.open(temp_zip, "r:*") as tf:
                     target_real = os.path.realpath(target_dir)
+                    target_prefix = target_real + os.sep
                     for member in tf.getmembers():
                         if is_cancelled and is_cancelled():
                             raise Exception("Extraction cancelled by user." if en else "Ayıklama kullanıcı tarafından iptal edildi.")
                         extracted_path = os.path.realpath(os.path.join(target_dir, member.name))
-                        if not extracted_path.startswith(target_real):
+                        if not (extracted_path.startswith(target_prefix) or extracted_path == target_real):
                             raise RuntimeError(f"Tar slip security error detected for {member.name}")
                         tf.extract(member, target_dir)
             else:

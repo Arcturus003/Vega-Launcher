@@ -21,6 +21,8 @@ sandbox_test/
 profiles/
 servers/
 minecraft_data/
+ModTranslations/
+patchouli_data.json
 
 # Test Scripts
 test_dl.py

@@ -174,6 +174,8 @@ def launch_installer(path):
     if sys.platform == "win32":
         import ctypes
         rc = ctypes.windll.shell32.ShellExecuteW(None, "open", path, args, None, 1)
+        if rc <= 32:
+            rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", path, args, None, 1)
         return rc > 32
     return False
 

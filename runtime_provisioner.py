@@ -266,7 +266,7 @@ class RuntimeProvisioner:
             mods_dir = os.path.join(prof_path, "mods")
             if os.path.isdir(mods_dir):
                 try:
-                    files = [f.lower() for f in os.listdir(mods_dir) if f.endswith(".jar")]
+                    files = [f.lower() for f in os.listdir(mods_dir) if f.lower().endswith(".jar")]
                     neo_cnt = sum(1 for f in files if "neoforge" in f)
                     fab_cnt = sum(1 for f in files if "fabric" in f)
                     quilt_cnt = sum(1 for f in files if "quilt" in f)
@@ -290,7 +290,7 @@ class RuntimeProvisioner:
         version = None
         try:
             files = os.listdir(s_dir)
-            jar_files = [f.lower() for f in files if f.endswith(".jar") and f != "installer.jar"]
+            jar_files = [f.lower() for f in files if f.lower().endswith(".jar") and f.lower() != "installer.jar"]
 
             for jf in jar_files:
                 if "purpur" in jf:
@@ -329,7 +329,7 @@ class RuntimeProvisioner:
 
             if not version:
                 for f in files:
-                    if f.endswith(".txt") or f.endswith(".json") or f.endswith(".log"):
+                    if f.lower().endswith((".txt", ".json", ".log")):
                         fpath = os.path.join(s_dir, f)
                         try:
                             with open(fpath, "r", encoding="utf-8", errors="ignore") as fh:
@@ -399,8 +399,9 @@ class RuntimeProvisioner:
             if loader_norm == "quilt" and "quilt" in low and mc_version in low:
                 return entry
             if loader_norm == "neoforge" and "neoforge" in low:
-                short_mc = mc_version[2:] if mc_version.startswith("1.") else mc_version
-                if mc_version in low or low.startswith(f"neoforge-{short_mc}."):
+                m = re.match(r"^1\.(\d+)(?:\.(\d+))?$", mc_version)
+                prefix = f"neoforge-{m.group(1)}.{m.group(2) or '0'}." if m else f"neoforge-{mc_version}."
+                if mc_version in low or low.startswith(prefix):
                     return entry
             if loader_norm == "forge" and "forge" in low and "neoforge" not in low and mc_version in low:
                 return entry
@@ -893,7 +894,8 @@ class RuntimeProvisioner:
                 if process.returncode == 0:
                     _log(f"[INFO] {software} installation completed." if en else f"[BİLGİ] {software} kurulumu tamamlandı.")
                     for f in os.listdir(server_dir):
-                        if (f.startswith("forge-") or f.startswith("neoforge-")) and f.endswith(".jar") and f != "installer.jar":
+                        f_low = f.lower()
+                        if (f.startswith("forge-") or f.startswith("neoforge-") or f_low.startswith("forge-") or f_low.startswith("neoforge-")) and f_low.endswith(".jar") and f_low != "installer.jar":
                             try:
                                 os.replace(os.path.join(server_dir, f), os.path.join(server_dir, "server.jar"))
                                 break

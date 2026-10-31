@@ -106,7 +106,7 @@ class ImageLoaderThread(QThread):
         self.url = url
     def run(self):
         try:
-            resp = requests.get(self.url, timeout=7, headers={"User-Agent": "VegaLauncher/2.0.0"})
+            resp = requests.get(self.url, timeout=7, headers={"User-Agent": "VegaLauncher/2.0.4"})
             if resp.status_code == 200:
                 self.loaded.emit(resp.content)
                 self.loaded_with_url.emit(self.url, resp.content)

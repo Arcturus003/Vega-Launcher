@@ -1933,7 +1933,6 @@ class ServerWidget(QWidget):
             self.log("[ERROR] Please select or create a server first." if en else "[HATA] Lütfen önce bir sunucu seçin veya oluşturun.")
             return
             
-        from server_downloader import ServerSoftwareDialog
         dialog = ServerSoftwareDialog(self, self.server_dir)
         dialog.exec()
         self.update_dashboard_cards()
@@ -2046,8 +2045,6 @@ class ServerWidget(QWidget):
             if not auto_version:
                 auto_version = "1.20.1"
 
-            from server_downloader import ServerSoftwareDialog
-
             if detected_loader == "fabric":
                 self.log(
                     f"[INFO] Fabric client profile detected. Installing Fabric server automatically... (Version: {auto_version})"
@@ -2113,7 +2110,6 @@ class ServerWidget(QWidget):
                 self.log(f"[INFO] New server profile created: {new_dir}" if en else f"[BİLGİ] Yeni sunucu profili oluşturuldu: {new_dir}")
                 self.log("[INFO] Opening automatic software installer..." if en else "[BİLGİ] Otomatik yazılım kurulum ekranı açılıyor...")
                 
-                from server_downloader import ServerSoftwareDialog
                 dialog = ServerSoftwareDialog(self, self.server_dir)
                 dialog.exec()
                 self.update_dashboard_cards()

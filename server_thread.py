@@ -52,7 +52,7 @@ class MinecraftServerThread(QThread):
                     content = f.read()
                 if "pause" in content.lower():
                     import re
-                    content = re.sub(r'(?im)^pause\s*$', '', content)
+                    content = re.sub(r'(?im)^\s*@?pause\s*$', '', content)
                     with open(run_bat, 'w', encoding='utf-8') as f:
                         f.write(content)
             except Exception:

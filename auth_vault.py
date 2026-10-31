@@ -213,7 +213,7 @@ class AuthenticationVault:
           - new_data / refreshed_login: refreshed account dict or None
           - error_msg: human-readable network/API error string
         """
-        login_dict = dict(ms_login or {})
+        login_dict = cls.unprotect_account_for_runtime(ms_login) or {}
         # Offline accounts are always immediately valid without network validation
         if login_dict.get("type") == "offline" or (login_dict.get("name") and not login_dict.get("refresh_token") and login_dict.get("access_token") in ("0", "", None)):
             return {"status": "ok", "new_data": None, "refreshed_login": None, "error_msg": ""}

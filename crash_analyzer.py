@@ -164,7 +164,7 @@ class CrashAnalyzer:
         mods_dir = Path(profile_root) / "mods" if profile_root else None
         installed_jars = []
         if mods_dir and mods_dir.is_dir():
-            installed_jars = [f.name for f in mods_dir.iterdir() if f.is_file() and f.suffix == ".jar"]
+            installed_jars = [f.name for f in mods_dir.iterdir() if f.is_file() and f.suffix.lower() == ".jar"]
 
         def _resolve_culprit_jar(hint: str) -> Optional[tuple[str, str]]:
             if not mods_dir or not hint:
@@ -429,7 +429,7 @@ class CrashAnalyzer:
             r = requests.post(
                 url,
                 data={"content": sanitized[:350000]},
-                headers={"User-Agent": "VegaLauncher/2.0.0"},
+                headers={"User-Agent": "VegaLauncher/2.0.4"},
                 timeout=15,
             )
             if r.status_code == 200:

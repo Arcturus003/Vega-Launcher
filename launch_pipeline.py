@@ -51,9 +51,15 @@ class GameLaunchPipeline:
         extra_jvm: str = "",
         java_path: Optional[str] = None,
         launcher_name: str = "Vega Launcher",
-        launcher_version: str = "2.0.0",
+        launcher_version: Optional[str] = None,
     ) -> dict:
         """Construct the options dict required by minecraft_launcher_lib."""
+        if not launcher_version:
+            try:
+                from main import __version__
+                launcher_version = __version__
+            except Exception:
+                launcher_version = "2.0.4"
         options: dict[str, Any] = {
             "username": auth_session.get("name") or auth_session.get("username", "Player"),
             "uuid": auth_session.get("id") or auth_session.get("uuid", ""),

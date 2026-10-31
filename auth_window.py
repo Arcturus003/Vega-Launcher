@@ -28,13 +28,6 @@ OFFICIAL_AUTH_URL = (
 )
 
 
-def _dpapi_decrypt_raw(dpapi_b64: str):
-    if not dpapi_b64:
-        return None
-    dec = AuthenticationVault.decrypt_secret(f"dpapi:{dpapi_b64}")
-    return dec if dec else None
-
-
 def needs_rebind_token(data: str) -> bool:
     """Returns True if token is plaintext, contains a legacy portable suffix, or its DPAPI layer cannot be decrypted."""
     return AuthenticationVault.needs_rebind(data)
@@ -223,7 +216,7 @@ class SkinPreviewThread(QThread):
             return
         url = f"https://minotar.net/helm/{self.username}/64.png"
         try:
-            resp = requests.get(url, timeout=3, headers={"User-Agent": "VegaLauncher/2.0.2"})
+            resp = requests.get(url, timeout=3, headers={"User-Agent": "VegaLauncher/2.0.4"})
             if resp.status_code == 200 and resp.content:
                 self.preview_loaded.emit(self.username, resp.content)
         except Exception:
@@ -587,6 +580,13 @@ class AccountLoginDialog(QDialog):
     def _fetch_avatar_preview(self):
         name = self.txt_offline_name.text().strip()
         if len(name) >= 3:
+            if self._preview_worker and self._preview_worker.isRunning():
+                try:
+                    self._preview_worker.preview_loaded.disconnect()
+                except Exception:
+                    pass
+                self._preview_worker.quit()
+                self._preview_worker.wait(300)
             self._preview_worker = SkinPreviewThread(name, parent=self)
             self._preview_worker.preview_loaded.connect(self._on_avatar_loaded)
             self._preview_worker.start()
@@ -617,6 +617,16 @@ class AccountLoginDialog(QDialog):
     def _cleanup_worker(self):
         if hasattr(self, "_clipboard_timer") and self._clipboard_timer.isActive():
             self._clipboard_timer.stop()
+        if hasattr(self, "_skin_timer") and self._skin_timer.isActive():
+            self._skin_timer.stop()
+        if self._preview_worker and self._preview_worker.isRunning():
+            try:
+                self._preview_worker.preview_loaded.disconnect()
+            except Exception:
+                pass
+            self._preview_worker.quit()
+            self._preview_worker.wait(500)
+            self._preview_worker = None
         if self._login_worker and self._login_worker.isRunning():
             try:
                 self._login_worker.finished_login.disconnect()
@@ -624,6 +634,11 @@ class AccountLoginDialog(QDialog):
                 pass
             self._login_worker.quit()
             self._login_worker.wait(1000)
+            self._login_worker = None
+
+    def accept(self):
+        self._cleanup_worker()
+        super().accept()
 
     def reject(self):
         self._cleanup_worker()

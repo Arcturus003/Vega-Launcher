@@ -1042,6 +1042,8 @@ class ModrinthBrowser(QWidget):
         search_cls = _resolve_search_thread_cls()
         thread = search_cls("", self.project_type, sort_index, 24, version, loader, self.current_category, catalog=catalog)
         thread._cache_key = cache_key
+        self._search_epoch = getattr(self, '_search_epoch', 0) + 1
+        thread._search_epoch = self._search_epoch
         thread.search_finished.connect(self.on_search_finished)
         self._search_threads.append(thread)
         _track_browser_thread(thread)
@@ -1081,6 +1083,8 @@ class ModrinthBrowser(QWidget):
         search_cls = _resolve_search_thread_cls()
         thread = search_cls(query, self.project_type, sort_index, 24, version, loader, self.current_category, catalog=catalog)
         thread._cache_key = cache_key
+        self._search_epoch = getattr(self, '_search_epoch', 0) + 1
+        thread._search_epoch = self._search_epoch
         thread.search_finished.connect(self.on_search_finished)
         self._search_threads.append(thread)
         _track_browser_thread(thread)
@@ -1091,9 +1095,11 @@ class ModrinthBrowser(QWidget):
         sender = self.sender()
         if hasattr(self, '_search_thread') and sender != self._search_thread:
             return
+        if hasattr(self, '_search_epoch') and getattr(sender, '_search_epoch', None) != self._search_epoch:
+            return
             
-        self.clear_grid()
         if results is None or not results:
+            self.clear_grid()
             en = getattr(self, "lang", "tr") == "en"
             if results is None:
                 msg = "Failed to load items, check your internet connection." if en else "Modlar yüklenemedi, internet bağlantınızı kontrol edin."
@@ -1117,6 +1123,7 @@ class ModrinthBrowser(QWidget):
 
     def clear_grid(self):
         self._populate_token = getattr(self, "_populate_token", 0) + 1
+        self._search_epoch = getattr(self, "_search_epoch", 0) + 1
         had_selection = self.selected_card is not None
         if self.selected_card:
             self.selected_card.set_selected(False)

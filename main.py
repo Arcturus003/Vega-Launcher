@@ -2,7 +2,7 @@ __app_name__ = "Vega Launcher"
 
 __author__ = "Arcturus"
 
-__version__ = "2.0.3"
+__version__ = "2.0.4"
 
 __copyright__ = "© 2026 Arcturus. All rights reserved."
 
@@ -8772,7 +8772,10 @@ oLink.Save
 
             if res.get("refreshed_login"):
 
-                self.ms_login = res["refreshed_login"]
+                if isinstance(self.ms_login, dict):
+                    self.ms_login.update(res["refreshed_login"])
+                else:
+                    self.ms_login = res["refreshed_login"]
 
                 self.save_config()
 
@@ -8945,6 +8948,7 @@ oLink.Save
                 extra_jvm=(getattr(self, "settings", {}) or {}).get("jvm_args", "").strip(),
 
                 java_path=resolved_java,
+                launcher_version=__version__,
 
             )
 

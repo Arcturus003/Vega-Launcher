@@ -287,7 +287,7 @@ class BackupManager:
                             arcname = os.path.relpath(file_path, server_dir)
                             files_to_zip.append((file_path, arcname))
             else:
-                if item.endswith(".json") or item.endswith(".properties"):
+                if item.lower().endswith((".json", ".properties")):
                     files_to_zip.append((item_path, item))
         return files_to_zip
 
@@ -457,6 +457,6 @@ class BackupManager:
         if not os.path.exists(backups_dir):
             return []
         try:
-            return [f for f in os.listdir(backups_dir) if f.endswith(".zip")]
+            return [f for f in os.listdir(backups_dir) if f.lower().endswith(".zip")]
         except OSError:
             return []

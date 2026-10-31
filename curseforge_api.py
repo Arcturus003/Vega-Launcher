@@ -65,7 +65,7 @@ class CurseForgeAPI:
             cls._session = requests.Session()
             cls._session.headers.update({
                 "x-api-key": API_KEY,
-                "User-Agent": "VegaLauncher/2.0.0",
+                "User-Agent": "VegaLauncher/2.0.4",
                 "Accept": "application/json",
             })
         return cls._session
@@ -317,7 +317,7 @@ class CurseForgeAPI:
         try:
             r = requests.get(
                 url,
-                headers={"User-Agent": "VegaLauncher/2.0.0"},
+                headers={"User-Agent": "VegaLauncher/2.0.4"},
                 stream=True,
                 timeout=30,
                 allow_redirects=True,

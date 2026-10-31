@@ -477,10 +477,8 @@ class SoundManager(QObject):
     def _init_sounds(self):
         try:
             os.makedirs(self.sounds_dir, exist_ok=True)
-            test_file = os.path.join(self.sounds_dir, ".write_test")
-            with open(test_file, "w") as f:
-                f.write("ok")
-            os.remove(test_file)
+            if not os.access(self.sounds_dir, os.W_OK):
+                raise PermissionError(f"Directory not writable: {self.sounds_dir}")
         except (OSError, PermissionError):
             user_data = os.environ.get("APPDATA", os.path.expanduser("~"))
             self.sounds_dir = os.path.join(user_data, ".minecraft_launcher", "sounds")

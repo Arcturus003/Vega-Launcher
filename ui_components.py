@@ -117,7 +117,8 @@ def _format_mod_display_name(filename: str):
     if mc_ver:
         sub_parts.append(f"MC {mc_ver}")
     if not sub_parts:
-        ext_clean = "Pak" if filename.endswith(".pak") or ".pak." in filename else "Mod"
+        fn_low = filename.lower()
+        ext_clean = "Pak" if fn_low.endswith(".pak") or ".pak." in fn_low else "Mod"
         sub_parts.append(ext_clean)
     res = (title, " · ".join(sub_parts))
     _FORMAT_NAME_CACHE[filename] = res
@@ -187,7 +188,7 @@ class ModItemWidget(QWidget):
         self.filepath = filepath
         self.parent_list = parent_list
         self.lang = lang
-        self.is_disabled = self.filepath.endswith(".disabled")
+        self.is_disabled = self.filepath.lower().endswith(".disabled")
         
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 6, 12, 6)
@@ -205,7 +206,7 @@ class ModItemWidget(QWidget):
         self.icon_box.setFixedSize(32, 32)
         icon_lay = QVBoxLayout(self.icon_box)
         icon_lay.setContentsMargins(0, 0, 0, 0)
-        icon_lbl = QLabel("PAK" if display_fn.endswith(".pak") else "JAR")
+        icon_lbl = QLabel("PAK" if display_fn.lower().endswith(".pak") else "JAR")
         icon_lbl.setObjectName("ModTypeLbl")
         icon_lbl.setAlignment(Qt.AlignCenter)
         icon_lay.addWidget(icon_lbl)
@@ -960,7 +961,7 @@ class InstalledModsPanel(QWidget):
             self._update_mod_count_label(0, 0)
             return
             
-        mods = [f for f in os.listdir(self.current_dir) if f.endswith(".jar") or f.endswith(".jar.disabled") or f.endswith(".pak") or f.endswith(".pak.disabled")]
+        mods = [f for f in os.listdir(self.current_dir) if f.lower().endswith((".jar", ".jar.disabled", ".pak", ".pak.disabled"))]
         
         if not mods:
             self._last_loaded_count = 0
@@ -1322,7 +1323,7 @@ class InstalledModsPanel(QWidget):
         chosen_file = None
         is_crash = False
         if os.path.exists(crash_dir):
-            c_files = [os.path.join(crash_dir, f) for f in os.listdir(crash_dir) if f.endswith(".txt") or f.endswith(".log")]
+            c_files = [os.path.join(crash_dir, f) for f in os.listdir(crash_dir) if f.lower().endswith((".txt", ".log"))]
             if c_files:
                 c_files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
                 # Prefer crash report if newer than latest.log or if exit_code != 0

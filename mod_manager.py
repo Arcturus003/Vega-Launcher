@@ -205,7 +205,7 @@ class DefaultLoaderInstallerAdapter:
 
 class ModrinthAPI:
     BASE_URL = "https://api.modrinth.com/v2"
-    HEADERS = {"User-Agent": "VegaLauncher/2.0.0 (https://github.com/Arcturus003/Vega-Launcher)"}
+    HEADERS = {"User-Agent": "VegaLauncher/2.0.4 (https://github.com/Arcturus003/Vega-Launcher)"}
     _session = None
 
     @classmethod
@@ -440,7 +440,7 @@ class ContentCatalog:
             files = selected_version_obj["files"]
             chosen = None
             for f in files:
-                if f.get("primary") or f.get("filename", "").endswith(".mrpack"):
+                if f.get("primary") or f.get("filename", "").lower().endswith(".mrpack"):
                     chosen = f
                     break
             if not chosen:
@@ -640,7 +640,7 @@ class ContentCatalog:
                     if is_cf:
                         parsed_url = urllib.parse.urlparse(fr.url)
                         parsed_name = os.path.basename(parsed_url.path)
-                        if parsed_name and parsed_name.endswith(".jar"):
+                        if parsed_name and parsed_name.lower().endswith(".jar"):
                             file_basename = parsed_name
                         target_path = os.path.realpath(os.path.join(base_prof, "mods", file_basename))
                     else:
@@ -823,16 +823,28 @@ class ContentCatalog:
                     if loaders:
                         loader_id = loaders[0].get("id", "")
                         if loader_id.startswith("forge-"):
-                            forge_version = loader_id.split("-")[1]
+                            forge_version = loader_id.split("-", 1)[1].strip() or None
                             _emit_val(0, 0)
                             new_version_id = self.loader_installer.install(
                                 mc_version, "forge", forge_version, self.mc_dir, on_progress=_emit_status
                             )
                         elif loader_id.startswith("fabric-"):
-                            fabric_version = loader_id.split("-")[1]
+                            fabric_version = loader_id.split("-", 1)[1].strip() or None
                             _emit_val(0, 0)
                             new_version_id = self.loader_installer.install(
                                 mc_version, "fabric", fabric_version, self.mc_dir, on_progress=_emit_status
+                            )
+                        elif loader_id.startswith("neoforge-"):
+                            neoforge_version = loader_id.split("-", 1)[1].strip() or None
+                            _emit_val(0, 0)
+                            new_version_id = self.loader_installer.install(
+                                mc_version, "neoforge", neoforge_version, self.mc_dir, on_progress=_emit_status
+                            )
+                        elif loader_id.startswith("quilt-"):
+                            quilt_version = loader_id.split("-", 1)[1].strip() or None
+                            _emit_val(0, 0)
+                            new_version_id = self.loader_installer.install(
+                                mc_version, "quilt", quilt_version, self.mc_dir, on_progress=_emit_status
                             )
                         else:
                             new_version_id = loader_id
