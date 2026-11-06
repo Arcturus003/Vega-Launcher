@@ -169,8 +169,8 @@ class CardWidget(QFrame):
         self.icon_lbl = QLabel(fallback_sym, self)
         self.icon_lbl.setWindowFlags(Qt.Widget)
         self.icon_lbl.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self.icon_lbl.setFixedSize(38, 38)
-        self.icon_lbl.setStyleSheet("background-color: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 6px; font-size: 18px;")
+        self.icon_lbl.setFixedSize(40, 40)
+        self.icon_lbl.setStyleSheet("background-color: rgba(139, 92, 246, 0.14); border: 1px solid rgba(139, 92, 246, 0.28); border-radius: 8px; font-size: 18px;")
         self.icon_lbl.setAlignment(Qt.AlignCenter)
         header_layout.addWidget(self.icon_lbl)
         
@@ -226,7 +226,7 @@ class CardWidget(QFrame):
         self.version.setWindowFlags(Qt.Widget)
         self.version.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.version.setObjectName("CardVersionBadge")
-        self.version.setStyleSheet("background: rgba(139, 92, 246, 0.18); color: #C084FC; border: 1px solid rgba(139, 92, 246, 0.32); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;")
+        self.version.setStyleSheet("background: rgba(139, 92, 246, 0.22); color: #D8B4FE; border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 5px; padding: 2px 7px; font-size: 10px; font-weight: 700;")
         self.version.setAlignment(Qt.AlignCenter)
         header_layout.addWidget(self.version)
 
@@ -344,7 +344,7 @@ class CardWidget(QFrame):
                 #ModpackCard {
                     background-color: #2B1D42;
                     border: 2px solid #C084FC;
-                    border-radius: 6px;
+                    border-radius: 8px;
                 }
                 #ModpackCard:hover {
                     background-color: #2B1D42;
@@ -362,7 +362,7 @@ class CardWidget(QFrame):
                     border: 1px solid #282830;
                     border-top: 1px solid #34343E;
                     border-bottom: 2px solid #141416;
-                    border-radius: 6px;
+                    border-radius: 8px;
                 }
                 #ModpackCard:hover {
                     background-color: #212128;

@@ -2,7 +2,7 @@ __app_name__ = "Vega Launcher"
 
 __author__ = "Arcturus"
 
-__version__ = "2.0.4"
+__version__ = "2.0.5"
 
 __copyright__ = "© 2026 Arcturus. All rights reserved."
 
@@ -2766,7 +2766,7 @@ class VegaLauncher(QMainWindow):
 
         else:
 
-            themed_qss += "\nQMainWindow { background-color: #141416; }"
+            themed_qss += "\nQMainWindow { background-color: #08090F; }"
 
 
 
@@ -3188,24 +3188,6 @@ class VegaLauncher(QMainWindow):
 
         self.hero_card.setObjectName("HeroCard")
 
-        self.hero_card.setStyleSheet("""
-
-            QFrame#HeroCard {
-
-                background-color: #1A1A1E;
-
-                border: 1px solid #282830;
-
-                border-top: 1px solid #34343E;
-
-                border-bottom: 2px solid #141416;
-
-                border-radius: 6px;
-
-            }
-
-        """)
-
         hero_layout = QHBoxLayout(self.hero_card)
 
         hero_layout.setContentsMargins(24, 16, 24, 16)
@@ -3250,7 +3232,7 @@ class VegaLauncher(QMainWindow):
 
         self.hero_eyebrow = QLabel("SEÇİLİ PROFİL")
 
-        self.hero_eyebrow.setStyleSheet("font-family: 'Minecraft Five', 'Segoe UI', sans-serif; font-size: 11px; font-weight: 700; color: #C084FC; letter-spacing: 1px; background: transparent;")
+        self.hero_eyebrow.setStyleSheet("font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-size: 11px; font-weight: 700; color: #C084FC; letter-spacing: 1.5px; background: transparent;")
 
         self.hero_eyebrow.setVisible(True)
 
@@ -3348,67 +3330,11 @@ class VegaLauncher(QMainWindow):
 
 
 
-        btn_ghost_style = """
-
-            QPushButton {
-
-                background-color: #222228;
-
-                color: #E4E4E7;
-
-                border: 1px solid #18181C;
-
-                border-top: 1.5px solid #3E3E48;
-
-                border-bottom: 2.5px solid #141416;
-
-                border-radius: 4px;
-
-                padding: 6px 14px;
-
-                font-size: 12px;
-
-                font-weight: 600;
-
-            }
-
-            QPushButton:hover {
-
-                background-color: #2A2A32;
-
-                border-top: 1.5px solid #525260;
-
-                color: #FFFFFF;
-
-            }
-
-            QPushButton:pressed {
-
-                border-top: 2px solid #141416;
-
-                border-bottom: 1px solid #3E3E48;
-
-                padding-top: 7px;
-
-            }
-
-            QPushButton:disabled {
-
-                background-color: #1A1A1E;
-
-                color: #475569;
-
-                border: 1px solid #222226;
-
-            }
-
-        """
-
         self.hero_edit_btn = QPushButton("Profili Düzenle")
 
-        self.hero_edit_btn.setCursor(Qt.PointingHandCursor)
+        self.hero_edit_btn.setObjectName("HeroActionBtn")
 
-        self.hero_edit_btn.setStyleSheet(btn_ghost_style)
+        self.hero_edit_btn.setCursor(Qt.PointingHandCursor)
 
         self.hero_edit_btn.clicked.connect(self.edit_profile)
 
@@ -3416,9 +3342,9 @@ class VegaLauncher(QMainWindow):
 
         self.hero_shortcut_btn = QPushButton("Masaüstü Kısayolu")
 
-        self.hero_shortcut_btn.setCursor(Qt.PointingHandCursor)
+        self.hero_shortcut_btn.setObjectName("HeroActionBtn")
 
-        self.hero_shortcut_btn.setStyleSheet(btn_ghost_style)
+        self.hero_shortcut_btn.setCursor(Qt.PointingHandCursor)
 
         self.hero_shortcut_btn.clicked.connect(self.create_profile_shortcut)
 
@@ -3426,9 +3352,9 @@ class VegaLauncher(QMainWindow):
 
         self.hero_open_folder = QPushButton("Klasörü Aç")
 
-        self.hero_open_folder.setCursor(Qt.PointingHandCursor)
+        self.hero_open_folder.setObjectName("HeroActionBtn")
 
-        self.hero_open_folder.setStyleSheet(btn_ghost_style)
+        self.hero_open_folder.setCursor(Qt.PointingHandCursor)
 
         self.hero_open_folder.clicked.connect(self.open_profile_folder)
 
@@ -3454,55 +3380,7 @@ class VegaLauncher(QMainWindow):
 
         self.add_profile_btn = QPushButton("+ YENİ PROFİL")
 
-        self.add_profile_btn.setStyleSheet("""
-
-            QPushButton {
-
-                background-color: #7C3AED;
-
-                color: #FFFFFF;
-
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-
-                font-size: 11px;
-
-                font-weight: bold;
-
-                border: 1px solid #5B21B6;
-
-                border-top: 1.5px solid #A78BFA;
-
-                border-left: 1px solid #8B5CF6;
-
-                border-right: 1px solid #6D28D9;
-
-                border-bottom: 3.5px solid #4C1D95;
-
-                border-radius: 4px;
-
-                padding: 7px 16px;
-
-            }
-
-            QPushButton:hover {
-
-                background-color: #8B5CF6;
-
-                border-top: 1.5px solid #C084FC;
-
-            }
-
-            QPushButton:pressed {
-
-                border-top: 2.5px solid #4C1D95;
-
-                border-bottom: 1px solid #A78BFA;
-
-                padding-top: 9px;
-
-            }
-
-        """)
+        self.add_profile_btn.setObjectName("AddProfileBtn")
 
         self.add_profile_btn.setCursor(Qt.PointingHandCursor)
 
@@ -3514,57 +3392,7 @@ class VegaLauncher(QMainWindow):
 
         self.install_file_btn = QPushButton("ZİP'TEN KUR")
 
-        self.install_file_btn.setStyleSheet("""
-
-            QPushButton {
-
-                background-color: #222228;
-
-                color: #E4E4E7;
-
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-
-                font-size: 11px;
-
-                font-weight: bold;
-
-                border: 1px solid #18181C;
-
-                border-top: 1.5px solid #3E3E48;
-
-                border-left: 1px solid #282830;
-
-                border-right: 1px solid #1A1A1E;
-
-                border-bottom: 3.5px solid #141416;
-
-                border-radius: 4px;
-
-                padding: 7px 16px;
-
-            }
-
-            QPushButton:hover {
-
-                background-color: #2A2A32;
-
-                border-top: 1.5px solid #525260;
-
-                color: #FFFFFF;
-
-            }
-
-            QPushButton:pressed {
-
-                border-top: 2.5px solid #141416;
-
-                border-bottom: 1px solid #3E3E48;
-
-                padding-top: 9px;
-
-            }
-
-        """)
+        self.install_file_btn.setObjectName("InstallFileBtn")
 
         self.install_file_btn.setCursor(Qt.PointingHandCursor)
 
@@ -3580,33 +3408,9 @@ class VegaLauncher(QMainWindow):
 
         self.profile_search = QLineEdit()
 
+        self.profile_search.setObjectName("ProfileSearch")
+
         self.profile_search.setPlaceholderText("Profillerde ara...")
-
-        self.profile_search.setStyleSheet("""
-
-            QLineEdit {
-
-                background-color: #18181B;
-
-                color: #F8FAFC;
-
-                border: 1px solid #282830;
-
-                border-radius: 4px;
-
-                padding: 7px 12px;
-
-                font-size: 12px;
-
-            }
-
-            QLineEdit:focus {
-
-                border: 1px solid #8B5CF6;
-
-            }
-
-        """)
 
         self.profile_search.textChanged.connect(self.filter_profiles)
 
@@ -3866,7 +3670,7 @@ class VegaLauncher(QMainWindow):
 
         # Durum çubuğu
 
-        self.statusBar().setStyleSheet("color: #888; background: rgba(15,15,20,0.9); border-top: 1px solid #333;")
+        self.statusBar().setStyleSheet("")
 
         self.statusBar().showMessage("Vega Launcher hazır — Profil seçip OYNA'ya basın!")
 
@@ -3977,245 +3781,127 @@ class VegaLauncher(QMainWindow):
 
 
         card_qss = """
-
             QFrame#SettingsCard {
-
-                background-color: #1A1A1E;
-
-                border: 1px solid #282830;
-
-                border-top: 1px solid #34343E;
-
-                border-bottom: 2px solid #141416;
-
-                border-radius: 6px;
-
+                background-color: #111322;
+                border: 1px solid rgba(139, 92, 246, 0.18);
+                border-top: 1.5px solid rgba(139, 92, 246, 0.35);
+                border-bottom: 2.5px solid #08090F;
+                border-radius: 10px;
             }
-
         """
 
         input_qss = """
-
             QComboBox, QSpinBox, QLineEdit {
-
-                background-color: #141416;
-
+                background-color: #0E101C;
                 color: #F8FAFC;
-
                 padding: 8px 12px;
-
-                border-radius: 4px;
-
-                border: 1px solid #282830;
-
+                border-radius: 6px;
+                border: 1px solid rgba(139, 92, 246, 0.22);
                 font-size: 13px;
-
             }
-
             QComboBox:hover, QSpinBox:hover, QLineEdit:focus {
-
                 border: 1px solid #A855F7;
-
-                background-color: #18181D;
-
+                background-color: #16192C;
             }
-
         """
 
         btn_qss = """
-
             QPushButton {
-
-                background-color: #222228;
-
-                color: #E4E4E7;
-
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-
-                border: 1px solid #18181C;
-
-                border-top: 1.5px solid #3E3E48;
-
-                border-bottom: 3px solid #18181C;
-
-                border-radius: 4px;
-
-                padding: 8px 14px;
-
-                font-size: 11px;
-
-                font-weight: 700;
-
-            }
-
-            QPushButton:hover {
-
-                background-color: #2A2A32;
-
-                border-top: 1.5px solid #4C4C58;
-
-                color: #FFFFFF;
-
-            }
-
-            QPushButton:pressed {
-
-                background-color: #18181C;
-
-                border-top: 3px solid #141416;
-
-                border-bottom: 1px solid #141416;
-
-                padding-top: 10px;
-
-                padding-bottom: 6px;
-
-            }
-
-            QPushButton#BtnAccLogin {
-
-                background-color: #7C3AED;
-
-                color: #FFFFFF;
-
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-
-                font-size: 11px;
-
-                font-weight: 700;
-
-                border-radius: 4px;
-
-                padding: 7px 14px;
-
-                border: 1px solid #5B21B6;
-
-                border-top: 1.5px solid #A78BFA;
-
-                border-left: 1px solid #8B5CF6;
-
-                border-right: 1px solid #6D28D9;
-
-                border-bottom: 2.5px solid #4C1D95;
-
-            }
-
-            QPushButton#BtnAccLogin:hover {
-
-                background-color: #8B5CF6;
-
-                border-top: 1.5px solid #C084FC;
-
-            }
-
-            QPushButton#BtnAccLogin:pressed {
-
-                background-color: #6D28D9;
-
-                padding-top: 8px;
-
-                padding-bottom: 6px;
-
-            }
-
-            QPushButton#BtnAccLogout {
-
-                background-color: #222228;
-
+                background-color: #16192C;
                 color: #CBD5E1;
-
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-
-                font-size: 11px;
-
-                font-weight: 700;
-
-                border-radius: 4px;
-
-                padding: 7px 14px;
-
-                border: 1px solid #282830;
-
-                border-top: 1.5px solid #3E3E48;
-
-                border-bottom: 2.5px solid #18181C;
-
-            }
-
-            QPushButton#BtnAccLogout:hover {
-
-                background-color: rgba(239, 68, 68, 0.12);
-
-                border: 1px solid #EF4444;
-
-                border-top: 1.5px solid #F87171;
-
-                border-bottom: 2.5px solid #7F1D1D;
-
-                color: #FCA5A5;
-
-            }
-
-            QPushButton#BtnAccLogout:pressed {
-
-                background-color: #18181C;
-
-                padding-top: 8px;
-
-                padding-bottom: 6px;
-
-            }
-
-            QPushButton#BtnCheckUpdates {
-
-                background-color: #7C3AED;
-
-                color: #FFFFFF;
-
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
-
-                font-size: 11px;
-
-                font-weight: bold;
-
-                border: 1px solid #5B21B6;
-
-                border-top: 1.5px solid #A78BFA;
-
-                border-left: 1px solid #8B5CF6;
-
-                border-right: 1px solid #6D28D9;
-
-                border-bottom: 3.5px solid #4C1D95;
-
-                border-radius: 4px;
-
+                font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+                border: 1px solid rgba(139, 92, 246, 0.22);
+                border-top: 1.5px solid rgba(139, 92, 246, 0.35);
+                border-bottom: 2.5px solid #08090F;
+                border-radius: 6px;
                 padding: 8px 16px;
-
+                font-size: 12px;
+                font-weight: 600;
             }
-
-            QPushButton#BtnCheckUpdates:hover {
-
-                background-color: #8B5CF6;
-
+            QPushButton:hover {
+                background-color: #201D38;
+                border: 1px solid #A855F7;
+                color: #FFFFFF;
+            }
+            QPushButton:pressed {
+                background-color: #121022;
+                border-top: 2px solid #08090F;
+                border-bottom: 1px solid rgba(139, 92, 246, 0.35);
+                padding-top: 9px;
+                padding-bottom: 5px;
+            }
+            QPushButton#BtnAccLogin {
+                background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #7C3AED, stop: 1 #8B5CF6);
+                color: #FFFFFF;
+                font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+                font-size: 12px;
+                font-weight: 700;
+                border-radius: 6px;
+                padding: 7px 16px;
+                border: 1px solid #6D28D9;
+                border-top: 1.5px solid #A78BFA;
+                border-left: 1.5px solid #8B5CF6;
+                border-right: 1.5px solid #6D28D9;
+                border-bottom: 2.5px solid #4C1D95;
+            }
+            QPushButton#BtnAccLogin:hover {
+                background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #8B5CF6, stop: 1 #A855F7);
                 border-top: 1.5px solid #C084FC;
-
             }
-
-            QPushButton#BtnCheckUpdates:pressed {
-
+            QPushButton#BtnAccLogin:pressed {
                 background-color: #6D28D9;
-
-                border-top: 2.5px solid #4C1D95;
-
-                border-bottom: 1px solid #A78BFA;
-
-                padding-top: 10px;
-
+                padding-top: 8px;
                 padding-bottom: 6px;
-
             }
-
+            QPushButton#BtnAccLogout {
+                background-color: #16192C;
+                color: #CBD5E1;
+                font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+                font-size: 12px;
+                font-weight: 600;
+                border-radius: 6px;
+                padding: 7px 16px;
+                border: 1px solid rgba(139, 92, 246, 0.22);
+                border-top: 1.5px solid rgba(139, 92, 246, 0.35);
+                border-bottom: 2.5px solid #08090F;
+            }
+            QPushButton#BtnAccLogout:hover {
+                background-color: rgba(239, 68, 68, 0.15);
+                border: 1px solid #EF4444;
+                border-top: 1.5px solid #F87171;
+                border-bottom: 2.5px solid #7F1D1D;
+                color: #FCA5A5;
+            }
+            QPushButton#BtnAccLogout:pressed {
+                background-color: #121022;
+                padding-top: 8px;
+                padding-bottom: 6px;
+            }
+            QPushButton#BtnCheckUpdates {
+                background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #7C3AED, stop: 1 #8B5CF6);
+                color: #FFFFFF;
+                font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+                font-size: 12px;
+                font-weight: 700;
+                border: 1px solid #6D28D9;
+                border-top: 1.5px solid #A78BFA;
+                border-left: 1.5px solid #8B5CF6;
+                border-right: 1.5px solid #6D28D9;
+                border-bottom: 2.5px solid #4C1D95;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }
+            QPushButton#BtnCheckUpdates:hover {
+                background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #8B5CF6, stop: 1 #A855F7);
+                border-top: 1.5px solid #C084FC;
+            }
+            QPushButton#BtnCheckUpdates:pressed {
+                background-color: #6D28D9;
+                border-top: 2px solid #4C1D95;
+                border-bottom: 1px solid #A78BFA;
+                padding-top: 9px;
+                padding-bottom: 5px;
+            }
         """
 
         chk_icon = os.path.join(self.base_dir, "assets", "check.png").replace("\\", "/")
@@ -6628,23 +6314,7 @@ oLink.Save
 
         if not pdata:
 
-            self.hero_card.setStyleSheet("""
-
-                QFrame#HeroCard {
-
-                    background-color: #1A1A1E;
-
-                    border: 1px solid #282830;
-
-                    border-top: 1px solid #34343E;
-
-                    border-bottom: 2px solid #141416;
-
-                    border-radius: 6px;
-
-                }
-
-            """)
+            self.hero_card.setStyleSheet("")
 
             return
 
@@ -6664,7 +6334,7 @@ oLink.Save
 
                     border: 1.5px solid {preset['accent']};
 
-                    border-radius: 6px;
+                    border-radius: 10px;
 
                 }}
 
@@ -6682,9 +6352,9 @@ oLink.Save
 
                     background-position: center;
 
-                    border: 1.5px solid #282830;
+                    border: 1.5px solid rgba(139, 92, 246, 0.35);
 
-                    border-radius: 6px;
+                    border-radius: 10px;
 
                 }}
 
@@ -6692,23 +6362,7 @@ oLink.Save
 
         else:
 
-            self.hero_card.setStyleSheet("""
-
-                QFrame#HeroCard {
-
-                    background-color: #1A1A1E;
-
-                    border: 1px solid #282830;
-
-                    border-top: 1px solid #34343E;
-
-                    border-bottom: 2px solid #141416;
-
-                    border-radius: 6px;
-
-                }
-
-            """)
+            self.hero_card.setStyleSheet("")
 
 
 
@@ -6744,7 +6398,13 @@ oLink.Save
 
         if pdata:
 
-            self.active_profile_version = pdata['version']
+            from runtime_provisioner import RuntimeProvisioner
+
+            self.active_profile_version = (
+                pdata.get('game_version')
+                or RuntimeProvisioner.extract_base_version(pdata.get('version'), default=None)
+                or pdata.get('version')
+            )
 
             self.active_profile_loader = self.get_active_profile_loader(pdata)
 
@@ -7135,69 +6795,26 @@ oLink.Save
 
 
     def _find_installed_engine_version(self, mc_version, loader):
-
-        loader = (loader or "vanilla").lower().strip()
-
-        versions_dir = os.path.join(self.mc_dir, "versions")
-
-        if not os.path.exists(versions_dir):
-
-            return None
-
-        candidates = []
-
-        for d in os.listdir(versions_dir):
-
-            if not os.path.isdir(os.path.join(versions_dir, d)):
-
-                continue
-
-            d_lower = d.lower()
-
-            if loader == "fabric" and "fabric" in d_lower and mc_version in d:
-
-                candidates.append(d)
-
-            elif loader == "neoforge" and "neoforge" in d_lower:
-                m = re.match(r"^1\.(\d+)(?:\.(\d+))?$", mc_version)
-                prefix = f"{m.group(1)}.{m.group(2) or '0'}." if m else ""
-                if (mc_version in d) or (prefix and prefix in d):
-                    candidates.append(d)
-
-            elif loader == "forge" and "forge" in d_lower and "neoforge" not in d_lower and mc_version in d:
-
-                candidates.append(d)
-
-            elif loader == "quilt" and "quilt" in d_lower and mc_version in d:
-
-                candidates.append(d)
-
-            elif loader == "vanilla" and d == mc_version:
-
-                candidates.append(d)
-
-        if candidates:
-
-            candidates.sort(reverse=True)
-
-            return candidates[0]
-
-        return None
-
-
+        from runtime_provisioner import DEFAULT_PROVISIONER
+        return DEFAULT_PROVISIONER.find_installed_loader_version(mc_version, loader, mc_dir=self.mc_dir)
 
     def install_engine_for_profile(self, profile_id, mc_version, loader="fabric"):
-
         lang = (getattr(self, "settings", {}) or {}).get("language", "tr")
-
         en = (lang == "en")
-
         loader = (loader or "fabric").lower().strip()
-
         mc_version = RuntimeProvisioner.extract_base_version(mc_version, default=mc_version)
+        if not RuntimeProvisioner.is_loader_supported_for_version(loader, mc_version):
+            loader_disp = "NeoForge" if loader == "neoforge" else loader.capitalize()
+            QMessageBox.warning(
+                self,
+                "Incompatible Engine" if en else "Uyumsuz Motor",
+                f"{loader_disp} does not support Minecraft {mc_version}."
+                if en else
+                f"{loader_disp} motoru Minecraft {mc_version} sürümünü desteklemez. Lütfen uyumlu bir motor seçin."
+            )
+            return
 
         existing = self._find_installed_engine_version(mc_version, loader)
-
         if existing:
 
             if profile_id in self.profiles:
@@ -8990,7 +8607,7 @@ oLink.Save
 
                         loader_type = pdata.get("loader") or loader_guess
 
-                        base_ver = RuntimeProvisioner.extract_base_version(version, default=version)
+                        base_ver = pdata.get("game_version") or RuntimeProvisioner.extract_base_version(version, default=version)
 
                         self.install_engine_for_profile(pid, base_ver, loader_type)
 

@@ -210,14 +210,37 @@ class DefaultClientInstallerBackend:
         java: Optional[str] = None,
     ) -> str:
         ensure_safe_natives_extraction()
+        if not RuntimeProvisioner.is_loader_supported_for_version("neoforge", mc_version):
+            raise Exception(
+                f"NeoForge yalnızca Minecraft 1.20.2 ve üzerini destekler ({mc_version} desteklenmiyor). "
+                f"1.20.1 için lütfen Forge seçin."
+            )
         import minecraft_launcher_lib.mod_loader
         neo = minecraft_launcher_lib.mod_loader.get_mod_loader("neoforge")
         clean_loader = re.sub(r"^neoforge[-_]?", "", loader_version, flags=re.IGNORECASE).strip() if loader_version else None
         if not clean_loader:
-            clean_loader = neo.get_latest_loader_version(mc_version)
+            try:
+                clean_loader = neo.get_latest_loader_version(mc_version)
+            except Exception as e:
+                err_str = str(e)
+                if "is not supported" in err_str.lower() or "unsupportedversion" in type(e).__name__.lower():
+                    raise Exception(
+                        f"NeoForge yalnızca Minecraft 1.20.2 ve üzerini destekler ({mc_version} desteklenmiyor). "
+                        f"1.20.1 için lütfen Forge seçin."
+                    ) from e
+                raise
             if not clean_loader:
                 raise Exception(f"NeoForge {mc_version} için bulunamadı veya desteklenmiyor.")
-        installed_ver = neo.install(mc_version, mc_dir, loader_version=clean_loader, callback=callback, java=java)
+        try:
+            installed_ver = neo.install(mc_version, mc_dir, loader_version=clean_loader, callback=callback, java=java)
+        except Exception as e:
+            err_str = str(e)
+            if "is not supported" in err_str.lower() or "unsupportedversion" in type(e).__name__.lower():
+                raise Exception(
+                    f"NeoForge yalnızca Minecraft 1.20.2 ve üzerini destekler ({mc_version} desteklenmiyor). "
+                    f"1.20.1 için lütfen Forge seçin."
+                ) from e
+            raise
         if not installed_ver:
             installed_ver = neo.get_installed_version(mc_version, clean_loader)
         return installed_ver if installed_ver else f"neoforge-{clean_loader}"
@@ -237,11 +260,66 @@ class RuntimeProvisioner:
     def extract_base_version(ver_str: Optional[str], default: Optional[str] = "1.20.1") -> Optional[str]:
         if not ver_str:
             return default
-        match = re.search(r'(?<![\d\.])(1\.(?:[7-9]|\d{2})(?:\.\d+)?)(?![\d\.])', str(ver_str))
+        s = str(ver_str)
+        neo_match = re.search(r'neoforge[-_\s]*(\d{2})\.(\d+)(?:\.\d+)?', s, re.IGNORECASE)
+        if neo_match:
+            minor, patch = neo_match.group(1), neo_match.group(2)
+            return f"1.{minor}" if patch == "0" else f"1.{minor}.{patch}"
+        match = re.search(r'(?<![\d\.])(1\.(?:[7-9]|\d{2})(?:\.\d+)?)(?![\d\.])', s)
         if match:
             return match.group(1)
-        fallback = re.search(r'(\d+\.\d+(?:\.\d+)?)', str(ver_str))
-        return fallback.group(1) if fallback else default
+        forge_match = re.search(r'forge[-_\s]*(\d+)\.\d+\.\d+', s, re.IGNORECASE)
+        if forge_match:
+            m = int(forge_match.group(1))
+            f_map = {
+                47: "1.20.1", 48: "1.20.2", 49: "1.20.4", 50: "1.20.6",
+                51: "1.21", 52: "1.21.1", 53: "1.21.3", 54: "1.21.4",
+                43: "1.19.2", 44: "1.19.3", 45: "1.19.4",
+                40: "1.18.2", 36: "1.16.5", 31: "1.15.2",
+            }
+            if m in f_map:
+                return f_map[m]
+        fallback = re.search(r'(?<![\d\.])(1\.\d+(?:\.\d+)?)(?![\d\.])', s)
+        if fallback:
+            return fallback.group(1)
+        return default
+
+    @staticmethod
+    def parse_mc_semver(ver_str: Optional[str]) -> tuple[int, int, int]:
+        if not ver_str:
+            return (0, 0, 0)
+        nums = [int(n) for n in re.findall(r"\d+", str(ver_str))]
+        while len(nums) < 3:
+            nums.append(0)
+        return (nums[0], nums[1], nums[2])
+
+    @staticmethod
+    def is_loader_supported_for_version(loader: str, mc_version: str) -> bool:
+        norm = (loader or "").lower().strip()
+        base_ver = RuntimeProvisioner.extract_base_version(mc_version) or mc_version
+        major, minor, patch = RuntimeProvisioner.parse_mc_semver(base_ver)
+
+        if norm == "neoforge":
+            # NeoForge officially branched starting at 1.20.2+
+            return (major > 1) or (major == 1 and minor > 20) or (major == 1 and minor == 20 and patch >= 2)
+        elif norm in ("fabric", "quilt"):
+            return (major > 1) or (major == 1 and minor >= 14)
+        elif norm in ("forge", "vanilla"):
+            return True
+        return True
+
+    @staticmethod
+    def get_supported_loaders(mc_version: str) -> list[str]:
+        base_ver = RuntimeProvisioner.extract_base_version(mc_version) or mc_version
+        major, minor, patch = RuntimeProvisioner.parse_mc_semver(base_ver)
+        
+        loaders = []
+        if (major > 1) or (major == 1 and minor >= 14):
+            loaders.append("Fabric")
+        loaders.append("Forge")
+        if (major > 1) or (major == 1 and minor > 20) or (major == 1 and minor == 20 and patch >= 2):
+            loaders.append("NeoForge")
+        return loaders
 
     @staticmethod
     def detect_client_runtime(pdata: Optional[dict]) -> RuntimeSpec:

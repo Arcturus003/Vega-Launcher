@@ -436,6 +436,7 @@ class TestAuditPonytailFixes(unittest.TestCase):
 
     def test_launch_options_dynamic_launcher_version(self):
         """Verify launch_pipeline sets launcherVersion to current release."""
+        import main
         from launch_pipeline import GameLaunchPipeline
 
         pipeline = GameLaunchPipeline()
@@ -443,7 +444,7 @@ class TestAuditPonytailFixes(unittest.TestCase):
             auth_session={"name": "Player"},
             game_directory="/fake/path",
         )
-        self.assertEqual(opts.get("launcherVersion"), "2.0.4")
+        self.assertEqual(opts.get("launcherVersion"), getattr(main, "__version__", "2.0.5"))
 
     def test_content_browser_search_epoch_rejection(self):
         """Verify ModrinthBrowser discards stale search results from earlier epochs."""

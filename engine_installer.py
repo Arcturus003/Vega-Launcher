@@ -62,10 +62,14 @@ class EngineInstallDialog(QDialog):
         # Orijinal sürüm adını al (örn: 1.20.1, fabric-loader-0.14.22-1.20.1 vb.)
         self.current_version = profile_data.get("version", "")
         # Saf minecraft sürümünü ayıkla (eğer zaten fabric/forge ise baz versiyonu bulur)
-        self.base_mc_version = self.extract_base_version(self.current_version)
+        self.base_mc_version = (
+            profile_data.get("game_version")
+            or self.extract_base_version(self.current_version)
+            or "1.20.1"
+        )
         
         self.setWindowTitle(f"Engine Installer - {profile_data.get('name')}" if en else f"Motor Kurucu - {profile_data.get('name')}")
-        self.setFixedSize(450, 250)
+        self.setFixedSize(460, 310)
         
         theme_key = "electric_amethyst"
         if main_window and hasattr(main_window, "settings") and isinstance(main_window.settings, dict):
@@ -103,10 +107,62 @@ class EngineInstallDialog(QDialog):
         desc.setStyleSheet("color: #CCC;")
         layout.addWidget(desc)
         
+        available_loaders = RuntimeProvisioner.get_supported_loaders(self.base_mc_version)
+        supported = [l for l in ["Fabric", "Forge", "NeoForge"] if l in available_loaders]
+        if not supported:
+            supported = ["Forge"]
+
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["Fabric", "Forge", "NeoForge"])
+        for ldr in supported:
+            self.engine_combo.addItem(ldr)
         self.engine_combo.setStyleSheet(f"padding: 8px; font-size: 14px; background: #1A1A26; color: white; border: 1px solid rgba({r}, {g}, {b}, 0.35); border-radius: 6px;")
         layout.addWidget(self.engine_combo)
+
+        # Select initial loader
+        current_loader = str(profile_data.get("loader") or "").strip().lower()
+        matched_idx = -1
+        for i in range(self.engine_combo.count()):
+            if self.engine_combo.itemText(i).lower() == current_loader:
+                matched_idx = i
+                break
+
+        was_incompatible = False
+        if matched_idx >= 0:
+            self.engine_combo.setCurrentIndex(matched_idx)
+        else:
+            if current_loader == "neoforge" and "NeoForge" not in supported:
+                was_incompatible = True
+            forge_idx = self.engine_combo.findText("Forge")
+            self.engine_combo.setCurrentIndex(forge_idx if forge_idx >= 0 else 0)
+
+        if was_incompatible:
+            warn_lbl = QLabel(
+                f"⚠️ NeoForge only supports MC 1.20.2+. For {self.base_mc_version}, Forge or Fabric is selected."
+                if en else
+                f"⚠️ NeoForge yalnızca 1.20.2 ve üzerini destekler. {self.base_mc_version} için Forge veya Fabric seçildi."
+            )
+            warn_lbl.setStyleSheet("color: #FBBF24; font-size: 11px; margin-top: 2px;")
+            warn_lbl.setWordWrap(True)
+            layout.addWidget(warn_lbl)
+
+        self.hint_lbl = QLabel("")
+        self.hint_lbl.setStyleSheet("color: #9CA3AF; font-size: 11px; margin-top: 2px;")
+        self.hint_lbl.setWordWrap(True)
+        layout.addWidget(self.hint_lbl)
+
+        def _update_hint():
+            ldr = self.engine_combo.currentText().lower()
+            if ldr == "forge":
+                self.hint_lbl.setText("Geniş mod ekosistemi ve güvenilir Forge uyumluluğu." if not en else "Wide mod ecosystem and reliable Forge compatibility.")
+            elif ldr == "fabric":
+                self.hint_lbl.setText("Yüksek FPS ve hızlı yükleme sunan modern mod motoru." if not en else "High-performance, lightweight modern mod loader.")
+            elif ldr == "neoforge":
+                self.hint_lbl.setText("1.20.2+ için modern mimarili yeni nesil Forge motoru." if not en else "Next-gen modern Forge engine for 1.20.2+.")
+            else:
+                self.hint_lbl.setText("")
+
+        self.engine_combo.currentIndexChanged.connect(lambda idx=None: _update_hint())
+        _update_hint()
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setStyleSheet(f"QProgressBar {{ border: 1px solid rgba({r}, {g}, {b}, 0.35); border-radius: 5px; text-align: center; background: #111; }} QProgressBar::chunk {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {grad_start}, stop:0.7 {prim_light}, stop:1 {sec}); border-radius: 3px; }}")
@@ -160,6 +216,17 @@ class EngineInstallDialog(QDialog):
 
     def start_install(self):
         engine = self.engine_combo.currentText()
+        if not RuntimeProvisioner.is_loader_supported_for_version(engine, self.base_mc_version):
+            en = self.lang == "en"
+            QMessageBox.warning(
+                self,
+                "Warning" if en else "Uyarı",
+                f"{engine} does not support Minecraft {self.base_mc_version}."
+                if en else
+                f"{engine} motoru Minecraft {self.base_mc_version} sürümünü desteklemez. Lütfen uyumlu bir motor seçin."
+            )
+            return
+
         mc_dir = self.main_window.mc_dir
         
         if hasattr(self.main_window, 'sound_mgr') and self.main_window.sound_mgr:

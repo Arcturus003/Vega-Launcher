@@ -35,13 +35,15 @@ def detect_profile_loader(pdata: Optional[dict]) -> Optional[str]:
 def detect_profile_game_version(pdata: Optional[dict]) -> Optional[str]:
     if not pdata or not isinstance(pdata, dict):
         return None
-    ver = str(pdata.get("game_version") or "")
+    from runtime_provisioner import RuntimeProvisioner
+    ver = str(pdata.get("game_version") or "").strip()
     if ver:
-        return ver
+        clean = RuntimeProvisioner.extract_base_version(ver, default=ver)
+        if clean:
+            return clean
     ver_str = pdata.get("version")
     if not ver_str:
         return None
-    from runtime_provisioner import RuntimeProvisioner
     return RuntimeProvisioner.extract_base_version(ver_str, default=None)
 
 

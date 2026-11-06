@@ -511,6 +511,77 @@ class TestJavaRuntimeProvisioning(unittest.TestCase):
             self.assertEqual(call_options.get("executablePath"), "/resolved/java.exe")
 
 
+class TestLoaderVersionCompatibility(unittest.TestCase):
+    def test_is_loader_supported_for_version(self):
+        # NeoForge only supports 1.20.2+
+        self.assertFalse(RuntimeProvisioner.is_loader_supported_for_version("neoforge", "1.20.1"))
+        self.assertFalse(RuntimeProvisioner.is_loader_supported_for_version("neoforge", "1.12.2"))
+        self.assertFalse(RuntimeProvisioner.is_loader_supported_for_version("neoforge", "1.19.4"))
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("neoforge", "1.20.2"))
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("neoforge", "1.20.4"))
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("neoforge", "1.21.1"))
+
+        # Fabric supports 1.14+
+        self.assertFalse(RuntimeProvisioner.is_loader_supported_for_version("fabric", "1.12.2"))
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("fabric", "1.14.4"))
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("fabric", "1.20.1"))
+
+        # Forge supports older and modern
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("forge", "1.12.2"))
+        self.assertTrue(RuntimeProvisioner.is_loader_supported_for_version("forge", "1.20.1"))
+
+    def test_get_supported_loaders(self):
+        # 1.20.1: Fabric and Forge (NeoForge excluded)
+        loaders_1201 = RuntimeProvisioner.get_supported_loaders("1.20.1")
+        self.assertIn("Fabric", loaders_1201)
+        self.assertIn("Forge", loaders_1201)
+        self.assertNotIn("NeoForge", loaders_1201)
+
+        # 1.20.4: Fabric, Forge, NeoForge
+        loaders_1204 = RuntimeProvisioner.get_supported_loaders("1.20.4")
+        self.assertIn("Fabric", loaders_1204)
+        self.assertIn("Forge", loaders_1204)
+        self.assertIn("NeoForge", loaders_1204)
+
+        # 1.12.2: Forge only (Fabric and NeoForge excluded)
+        loaders_1122 = RuntimeProvisioner.get_supported_loaders("1.12.2")
+        self.assertIn("Forge", loaders_1122)
+        self.assertNotIn("Fabric", loaders_1122)
+        self.assertNotIn("NeoForge", loaders_1122)
+
+    def test_engine_install_dialog_loader_filtering(self):
+        from PySide6.QtWidgets import QApplication
+        from engine_installer import EngineInstallDialog
+        app = QApplication.instance() or QApplication([])
+
+        mock_main = MagicMock()
+        mock_main.mc_dir = "/mock/mc"
+        mock_main.settings = {"theme": "electric_amethyst", "language": "tr"}
+
+        # Dialog for 1.20.1 profile with neoforge misconfigured
+        pdata_1201 = {"name": "Test 1.20.1", "version": "1.20.1", "loader": "neoforge"}
+        dlg_1201 = EngineInstallDialog(pdata_1201, "pid_1", mock_main)
+        items_1201 = [dlg_1201.engine_combo.itemText(i) for i in range(dlg_1201.engine_combo.count())]
+        self.assertIn("Fabric", items_1201)
+        self.assertIn("Forge", items_1201)
+        self.assertNotIn("NeoForge", items_1201)
+        self.assertEqual(dlg_1201.engine_combo.currentText(), "Forge")
+
+        # Dialog for 1.21.1 profile
+        pdata_1211 = {"name": "Test 1.21.1", "version": "1.21.1", "loader": "neoforge"}
+        dlg_1211 = EngineInstallDialog(pdata_1211, "pid_2", mock_main)
+        items_1211 = [dlg_1211.engine_combo.itemText(i) for i in range(dlg_1211.engine_combo.count())]
+        self.assertIn("NeoForge", items_1211)
+        self.assertEqual(dlg_1211.engine_combo.currentText(), "NeoForge")
+
+    def test_install_neoforge_raises_on_unsupported_version(self):
+        from runtime_provisioner import DefaultClientInstallerBackend
+        backend = DefaultClientInstallerBackend()
+        with self.assertRaises(Exception) as ctx:
+            backend.install_neoforge("1.20.1", "/mock/mc")
+        self.assertIn("1.20.2 ve üzerini destekler", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
 

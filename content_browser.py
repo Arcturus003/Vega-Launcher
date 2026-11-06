@@ -173,8 +173,8 @@ class DetailPanel(QWidget):
         self.main_gallery_preview.setFixedHeight(170)
         self.main_gallery_preview.setAlignment(Qt.AlignCenter)
         self.main_gallery_preview.setStyleSheet("""
-            background-color: rgba(10, 10, 16, 0.9);
-            border: 1px solid rgba(139, 92, 246, 0.25);
+            background-color: #0E101C;
+            border: 1px solid rgba(139, 92, 246, 0.28);
             border-radius: 10px;
             color: #64748B;
             font-size: 12px;
@@ -308,8 +308,8 @@ class DetailPanel(QWidget):
             if amt == self.selected_ram:
                 btn.setStyleSheet("""
                     QPushButton {
-                        background: #7C3AED;
-                        border: 1px solid #A855F7;
+                        background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #7C3AED, stop: 1 #9333EA);
+                        border: 1px solid #C084FC;
                         border-radius: 6px;
                         color: #FFFFFF;
                         font-weight: bold;
@@ -319,16 +319,17 @@ class DetailPanel(QWidget):
             else:
                 btn.setStyleSheet("""
                     QPushButton {
-                        background: rgba(255, 255, 255, 0.05);
-                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        background: #111322;
+                        border: 1px solid rgba(139, 92, 246, 0.25);
                         border-radius: 6px;
                         color: #94A3B8;
                         font-weight: 600;
                         font-size: 11px;
                     }
                     QPushButton:hover {
-                        background: rgba(255, 255, 255, 0.1);
-                        color: #FFFFFF;
+                        background: #16192C;
+                        border-color: rgba(168, 85, 247, 0.5);
+                        color: #F8FAFC;
                     }
                 """)
 
@@ -848,40 +849,34 @@ class ModrinthBrowser(QWidget):
             if cat_id == self.current_category:
                 btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #7C3AED;
+                        background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #7C3AED, stop: 1 #9333EA);
                         color: #FFFFFF;
                         font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
                         font-size: 11px;
                         font-weight: bold;
-                        border: 1px solid #5B21B6;
-                        border-top: 1.5px solid #A78BFA;
-                        border-left: 1px solid #8B5CF6;
-                        border-right: 1px solid #6D28D9;
+                        border: 1px solid #A855F7;
+                        border-top: 1.5px solid #C084FC;
                         border-bottom: 2.5px solid #4C1D95;
-                        border-radius: 4px;
-                        padding: 4px 12px;
+                        border-radius: 6px;
+                        padding: 4px 14px;
                     }
                 """)
             else:
                 btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #222228;
+                        background-color: #111322;
                         color: #94A3B8;
                         font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
                         font-size: 11px;
                         font-weight: 600;
-                        border: 1px solid #18181C;
-                        border-top: 1px solid #33333C;
-                        border-bottom: 2px solid #141418;
-                        border-left: 1px solid #282830;
-                        border-right: 1px solid #1A1A1E;
-                        border-radius: 4px;
-                        padding: 4px 12px;
+                        border: 1px solid rgba(139, 92, 246, 0.2);
+                        border-radius: 6px;
+                        padding: 4px 14px;
                     }
                     QPushButton:hover {
-                        background-color: #2A2A32;
-                        color: #FFFFFF;
-                        border-top: 1px solid #444452;
+                        background-color: #16192C;
+                        border-color: rgba(168, 85, 247, 0.45);
+                        color: #F8FAFC;
                     }
                 """)
 
@@ -1004,11 +999,23 @@ class ModrinthBrowser(QWidget):
                 return selected
                 
         window = self.window()
+        if hasattr(window, 'get_selected_profile'):
+            _, pdata = window.get_selected_profile()
+            if pdata and isinstance(pdata, dict):
+                from mod_manager import detect_profile_game_version
+                ver = detect_profile_game_version(pdata)
+                if ver:
+                    return ver
+
         if hasattr(window, 'active_profile_version'):
             version = window.active_profile_version
-            if not version: return None
-            
-            match = re.search(r'\b(1\.\d+(\.\d+)?)\b', version)
+            if not version:
+                return None
+            from runtime_provisioner import RuntimeProvisioner
+            extracted = RuntimeProvisioner.extract_base_version(version, default=None)
+            if extracted:
+                return extracted
+            match = re.search(r'(?<![\d\.])(1\.(?:[7-9]|\d{2})(?:\.\d+)?)(?![\d\.])', str(version))
             if match:
                 return match.group(1)
             return version
@@ -1123,7 +1130,6 @@ class ModrinthBrowser(QWidget):
 
     def clear_grid(self):
         self._populate_token = getattr(self, "_populate_token", 0) + 1
-        self._search_epoch = getattr(self, "_search_epoch", 0) + 1
         had_selection = self.selected_card is not None
         if self.selected_card:
             self.selected_card.set_selected(False)
@@ -1205,6 +1211,11 @@ class ContentBrowserPanel(QWidget):
         self.detail_panel.download_requested.connect(self.install_requested.emit)
 
     def _on_item_selected(self, data):
+        try:
+            from sound_manager import SoundManager
+            SoundManager.get_instance().play_teleport()
+        except Exception:
+            pass
         self.browser.set_columns(3)
         self.detail_panel.update_info(data)
 

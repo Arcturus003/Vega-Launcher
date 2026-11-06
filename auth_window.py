@@ -110,43 +110,6 @@ def complete_official_login(auth_code: str) -> dict:
     return account_data
 
 
-def complete_official_refresh(refresh_token: str, client_id: str = CLIENT_ID, redirect_uri: str = REDIRECT_URI) -> dict:
-    """Refresh Microsoft session using login.live.com for client_id 00000000402b5328."""
-    token_url = "https://login.live.com/oauth20_token.srf"
-    token_data = {
-        "client_id": client_id,
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-        "redirect_uri": redirect_uri,
-        "scope": "service::user.auth.xboxlive.com::MBI_SSL",
-    }
-    r = requests.post(token_url, data=token_data, timeout=15)
-    if r.status_code != 200:
-        err = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
-        desc = err.get("error_description") or err.get("error") or f"HTTP {r.status_code}"
-        raise RuntimeError(f"Token refresh failed: {desc}")
-    ms_tokens = r.json()
-    ms_access_token = ms_tokens["access_token"]
-    new_refresh_token = ms_tokens.get("refresh_token") or refresh_token
-
-    xbl_res = minecraft_launcher_lib.microsoft_account.authenticate_with_xbl(ms_access_token)
-    xbl_token = xbl_res["Token"]
-    userhash = xbl_res["DisplayClaims"]["xui"][0]["uhs"]
-
-    xsts_res = minecraft_launcher_lib.microsoft_account.authenticate_with_xsts(xbl_token)
-    xsts_token = xsts_res["Token"]
-
-    mc_auth = minecraft_launcher_lib.microsoft_account.authenticate_with_minecraft(userhash, xsts_token)
-    mc_token = mc_auth["access_token"]
-
-    profile = minecraft_launcher_lib.microsoft_account.get_profile(mc_token)
-    account_data = dict(profile)
-    account_data["type"] = "ms"
-    account_data["access_token"] = mc_token
-    account_data["refresh_token"] = new_refresh_token
-    return account_data
-
-
 def create_offline_account(username: str) -> dict:
     """Generate a standard offline Minecraft account using Mojang deterministic offline UUID."""
     name = (username or "").strip()

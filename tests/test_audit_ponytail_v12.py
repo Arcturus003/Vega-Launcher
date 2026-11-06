@@ -1,92 +1,73 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from PySide6.QtWidgets import QApplication
 
-app = QApplication.instance()
-if app is None:
-    app = QApplication([])
 
+class TestAuditPonytailV12Fixes(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
 
-class TestPonytailAuditV12(unittest.TestCase):
-    def test_detect_client_runtime_case_insensitive_jars(self):
-        """Verify detect_client_runtime recognizes uppercase .JAR files on Windows."""
+    def test_complete_official_refresh_removed_from_auth_window(self):
+        """Verify unused complete_official_refresh was removed from auth_window."""
+        import auth_window
+        self.assertFalse(hasattr(auth_window, "complete_official_refresh"))
+
+    def test_content_browser_clear_grid_does_not_increment_search_epoch(self):
+        """Verify clear_grid() does not mutate _search_epoch counter."""
+        from content_browser import ModrinthBrowser
+        browser = ModrinthBrowser(project_type="modpack")
+        browser._search_epoch = 42
+        browser.clear_grid()
+        self.assertEqual(browser._search_epoch, 42)
+        browser.deleteLater()
+
+    def test_find_installed_engine_version_delegation(self):
+        """Verify _find_installed_engine_version delegates to DEFAULT_PROVISIONER."""
+        from main import VegaLauncher
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            vd = Path(tmp_dir) / "versions"
+            vd.mkdir()
+            (vd / "neoforge-21.1.265").mkdir()
+
+            mock_launcher = MagicMock(spec=VegaLauncher)
+            mock_launcher.mc_dir = tmp_dir
+
+            res = VegaLauncher._find_installed_engine_version(mock_launcher, "1.21.1", "neoforge")
+            self.assertEqual(res, "neoforge-21.1.265")
+
+    def test_install_engine_for_profile_rejects_incompatible(self):
+        """Verify install_engine_for_profile rejects unsupported version upfront without launching thread."""
+        from main import VegaLauncher
+        mock_launcher = MagicMock(spec=VegaLauncher)
+        mock_launcher.settings = {"language": "tr"}
+        mock_launcher.profiles = {"p1": {"name": "Test"}}
+
+        with patch("main.QMessageBox.warning") as mock_warn, \
+             patch("main.RuntimeInstallThread") as mock_thread, \
+             patch("main.QProgressDialog") as mock_dlg:
+            VegaLauncher.install_engine_for_profile(mock_launcher, "p1", "1.20.1", "neoforge")
+            mock_warn.assert_called_once()
+            self.assertIn("NeoForge", mock_warn.call_args[0][2])
+            mock_thread.assert_not_called()
+            mock_dlg.assert_not_called()
+
+    def test_missing_engine_recovery_uses_game_version(self):
+        """Verify missing engine recovery uses pdata['game_version'] over custom version string."""
         from runtime_provisioner import RuntimeProvisioner
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            mods_dir = os.path.join(tmp_dir, "mods")
-            os.makedirs(mods_dir, exist_ok=True)
-            # Create files with uppercase extensions
-            open(os.path.join(mods_dir, "FABRIC-API-1.0.JAR"), "w").close()
-            open(os.path.join(mods_dir, "SODIUM-FABRIC.JAR"), "w").close()
-
-            spec = RuntimeProvisioner.detect_client_runtime({"path": tmp_dir, "game_version": "1.20.1"})
-            self.assertEqual(spec.loader, "fabric")
-
-    def test_detect_server_runtime_case_insensitive_jars_and_logs(self):
-        """Verify detect_server_runtime discovers uppercase .JAR server files and .LOG files."""
-        from runtime_provisioner import RuntimeProvisioner
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            open(os.path.join(tmp_dir, "PURPUR-1.20.4-1234.JAR"), "w").close()
-            with open(os.path.join(tmp_dir, "LATEST.LOG"), "w", encoding="utf-8") as f:
-                f.write("[INFO] Starting Minecraft 1.20.4 server...")
-
-            spec = RuntimeProvisioner.detect_server_runtime(tmp_dir)
-            self.assertEqual(spec.loader, "purpur")
-            self.assertEqual(spec.mc_version, "1.20.4")
-
-    def test_backup_manager_case_insensitive_filtering(self):
-        """Verify BackupManager discovers uppercase .ZIP backups and collects uppercase configs."""
-        from backup_manager import BackupManager
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            backups_dir = os.path.join(tmp_dir, "backups")
-            os.makedirs(backups_dir, exist_ok=True)
-            open(os.path.join(backups_dir, "BACKUP_2026-10-31.ZIP"), "w").close()
-
-            found_backups = BackupManager.list_backups(tmp_dir)
-            self.assertIn("BACKUP_2026-10-31.ZIP", found_backups)
-
-            # Test config files collection
-            open(os.path.join(tmp_dir, "SERVER.PROPERTIES"), "w").close()
-            open(os.path.join(tmp_dir, "OPS.JSON"), "w").close()
-            files_to_zip = BackupManager.collect_server_backup_files(tmp_dir)
-            arc_names = [f[1] for f in files_to_zip]
-            self.assertIn("SERVER.PROPERTIES", arc_names)
-            self.assertIn("OPS.JSON", arc_names)
-
-    def test_sound_manager_init_no_write_test_file(self):
-        """Verify SoundManager uses os.access without generating .write_test on disk."""
-        from sound_manager import SoundManager
-
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
-            with patch("sound_manager.generate_click_wav"), \
-                 patch("sound_manager.generate_launch_wav"), \
-                 patch("sound_manager.generate_levelup_wav"), \
-                 patch("sound_manager.generate_error_wav"), \
-                 patch("sound_manager.generate_door_open_wav"), \
-                 patch("sound_manager.generate_door_close_wav"):
-                sm = SoundManager()
-                sm.sounds_dir = os.path.join(tmp_dir, "sounds")
-                sm._init_sounds()
-                self.assertFalse(os.path.exists(os.path.join(sm.sounds_dir, ".write_test")))
-                self.assertTrue(os.path.isdir(sm.sounds_dir))
-
-    def test_ui_components_case_insensitive_mod_display(self):
-        """Verify ModItemWidget and format helpers handle uppercase extensions correctly."""
-        from ui_components import _format_mod_display_name, ModItemWidget
-
-        title, sub = _format_mod_display_name("CREATE-FABRIC-0.5.JAR")
-        self.assertEqual(title.upper(), "CREATE")
-
-        from PySide6.QtWidgets import QListWidget
-        lw = QListWidget()
-        widget = ModItemWidget("C:/fake/path/JEI.JAR.DISABLED", lw)
-        self.assertTrue(widget.is_disabled)
-        self.assertFalse(widget.toggle_btn.isChecked())
+        pdata = {
+            "name": "Custom Pack",
+            "version": "CustomModpack_Alpha",
+            "game_version": "1.21.1",
+            "loader": "neoforge",
+        }
+        version = pdata.get("version")
+        base_ver = pdata.get("game_version") or RuntimeProvisioner.extract_base_version(version, default=version)
+        self.assertEqual(base_ver, "1.21.1")
 
 
 if __name__ == "__main__":

@@ -246,14 +246,14 @@ class ModItemWidget(QWidget):
 
         self.setStyleSheet("""
             #ModTypeBox {
-                background: rgba(255, 255, 255, 0.04);
-                border: 1px solid rgba(255, 255, 255, 0.08);
+                background: rgba(139, 92, 246, 0.12);
+                border: 1px solid rgba(139, 92, 246, 0.25);
                 border-radius: 8px;
             }
             #ModTypeLbl {
                 font-size: 10px;
                 font-weight: 700;
-                color: #94A3B8;
+                color: #C084FC;
                 background: transparent;
             }
             #ModNameLbl {
@@ -268,19 +268,19 @@ class ModItemWidget(QWidget):
                 background: transparent;
             }
             #ModDelBtn {
-                background-color: #222228;
+                background-color: #16192C;
                 color: #EF4444;
-                border: 1px solid #18181C;
-                border-top: 1px solid #33333E;
-                border-bottom: 2px solid #141418;
-                border-radius: 4px;
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                border-top: 1.5px solid rgba(248, 113, 113, 0.4);
+                border-bottom: 2.5px solid #08090F;
+                border-radius: 6px;
                 font-size: 13px;
                 padding: 0px;
             }
             QPushButton#ModDelBtn:hover {
-                background-color: #7F1D1D;
+                background-color: rgba(239, 68, 68, 0.2);
                 color: #FCA5A5;
-                border-color: #DC2626;
+                border: 1px solid #EF4444;
             }
         """)
         self.update_toggle_style()
@@ -400,26 +400,8 @@ class InstalledModsPanel(QWidget):
         header_layout.addStretch()
 
         self.install_engine_btn = QPushButton("Motor Kur (Forge/Fabric)")
-        self.install_engine_btn.setObjectName("PrimaryAccentButton")
+        self.install_engine_btn.setObjectName("InstallEngineBtn")
         self.install_engine_btn.setCursor(Qt.PointingHandCursor)
-        self.install_engine_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #222228;
-                color: #E4E4E7;
-                border: 1px solid #18181C;
-                border-top: 1.5px solid #3E3E48;
-                border-bottom: 2.5px solid #141416;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 11px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #2A2A32;
-                border-top: 1.5px solid #525260;
-                color: #FFFFFF;
-            }
-        """)
         self.install_engine_btn.clicked.connect(lambda checked=False: self.open_engine_installer())
         header_layout.addWidget(self.install_engine_btn)
 
@@ -443,8 +425,8 @@ class InstalledModsPanel(QWidget):
         self.sub_stack = QStackedWidget()
         layout.addWidget(self.sub_stack, 1)
 
-        list_style = "QListWidget { background-color: #1A1A1E; border: 1px solid #282830; border-radius: 6px; outline: none; } QListWidget::item { border-bottom: 1px solid #242428; padding: 8px; color: #F8FAFC; } QListWidget::item:selected { background-color: #2B1D42; color: #FFFFFF; border: 1px solid #8B5CF6; }"
-        btn_style = "QPushButton { background-color: #222228; color: #E4E4E7; border: 1px solid #18181C; border-top: 1.5px solid #3E3E48; border-bottom: 3px solid #18181C; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: 600; } QPushButton:hover { border-top: 1.5px solid #4C4C58; background-color: #2A2A32; color: #FFFFFF; }"
+        list_style = "QListWidget { background-color: #111322; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; outline: none; } QListWidget::item { border-bottom: 1px solid rgba(139, 92, 246, 0.12); padding: 8px; color: #F8FAFC; } QListWidget::item:selected { background-color: #1E1A34; color: #FFFFFF; border: 1.5px solid #8B5CF6; }"
+        btn_style = "QPushButton { background-color: #16192C; color: #CBD5E1; border: 1px solid rgba(139, 92, 246, 0.22); border-top: 1.5px solid rgba(139, 92, 246, 0.35); border-bottom: 2.5px solid #08090F; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 600; } QPushButton:hover { background-color: #201D38; border: 1px solid #A855F7; color: #FFFFFF; } QPushButton:pressed { background-color: #121022; }"
 
         # Page 0: Mods
         mods_page = QWidget()
@@ -461,20 +443,20 @@ class InstalledModsPanel(QWidget):
         self.mod_search_input.setClearButtonEnabled(True)
         self.mod_search_input.setStyleSheet("""
             QLineEdit {
-                background-color: #141416;
+                background-color: #111322;
                 color: #F8FAFC;
-                border: 1px solid #282830;
+                border: 1px solid rgba(139, 92, 246, 0.25);
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-size: 12px;
                 font-family: 'Segoe UI', sans-serif;
             }
             QLineEdit:hover {
-                border-color: #3E3E48;
+                border-color: rgba(139, 92, 246, 0.55);
             }
             QLineEdit:focus {
                 border: 1px solid #8B5CF6;
-                background-color: #18181D;
+                background-color: #16192C;
             }
         """)
         self.mod_search_input.textChanged.connect(self._filter_mods)
@@ -487,7 +469,7 @@ class InstalledModsPanel(QWidget):
         m_lay.addLayout(search_bar_layout)
 
         self.mod_list = QListWidget()
-        self.mod_list.setStyleSheet("QListWidget { background-color: #1A1A1E; border: 1px solid #282830; border-radius: 6px; outline: none; } QListWidget::item { border-bottom: 1px solid #242428; padding: 0px; }")
+        self.mod_list.setStyleSheet("QListWidget { background-color: #111322; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; outline: none; } QListWidget::item { border-bottom: 1px solid rgba(139, 92, 246, 0.12); padding: 0px; } QListWidget::item:selected { background-color: #1E1A34; border: 1.5px solid #8B5CF6; }")
         m_lay.addWidget(self.mod_list, 1)
         self.sub_stack.addWidget(mods_page)
 
@@ -508,9 +490,10 @@ class InstalledModsPanel(QWidget):
         self.btn_world_folder.setCursor(Qt.PointingHandCursor)
         self.btn_world_folder.setStyleSheet(btn_style)
         self.btn_world_folder.clicked.connect(lambda checked=False: self.open_worlds_folder())
+        del_btn_style = "QPushButton { background-color: #16192C; color: #FCA5A5; border: 1px solid #7F1D1D; border-top: 1.5px solid #DC2626; border-bottom: 2.5px solid #7F1D1D; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: rgba(239, 68, 68, 0.2); border-color: #EF4444; }"
         self.btn_world_del = QPushButton("Sil")
         self.btn_world_del.setCursor(Qt.PointingHandCursor)
-        self.btn_world_del.setStyleSheet("QPushButton { background-color: #991B1B; color: #FFFFFF; border: 1px solid #7F1D1D; border-top: 1.5px solid #DC2626; border-bottom: 3px solid #7F1D1D; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #7F1D1D; }")
+        self.btn_world_del.setStyleSheet(del_btn_style)
         self.btn_world_del.clicked.connect(lambda checked=False: self.delete_selected_world())
         w_btn_row.addWidget(self.btn_world_backup)
         w_btn_row.addWidget(self.btn_world_folder)
@@ -539,7 +522,7 @@ class InstalledModsPanel(QWidget):
         self.btn_shot_folder.clicked.connect(lambda checked=False: self.open_screenshots_folder())
         self.btn_shot_del = QPushButton("Sil")
         self.btn_shot_del.setCursor(Qt.PointingHandCursor)
-        self.btn_shot_del.setStyleSheet("QPushButton { background-color: #991B1B; color: #FFFFFF; border: 1px solid #7F1D1D; border-top: 1.5px solid #DC2626; border-bottom: 3px solid #7F1D1D; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #7F1D1D; }")
+        self.btn_shot_del.setStyleSheet(del_btn_style)
         self.btn_shot_del.clicked.connect(lambda checked=False: self.delete_selected_screenshot())
         s_btn_row.addWidget(self.btn_shot_copy)
         s_btn_row.addWidget(self.btn_shot_folder)
@@ -554,12 +537,12 @@ class InstalledModsPanel(QWidget):
         l_lay.setSpacing(8)
         self.lbl_crash_diagnosis = QLabel("")
         self.lbl_crash_diagnosis.setWordWrap(True)
-        self.lbl_crash_diagnosis.setStyleSheet("background-color: #1A1A1E; border: 1px solid #282830; border-radius: 6px; padding: 12px; font-size: 12px; color: #F8FAFC;")
+        self.lbl_crash_diagnosis.setStyleSheet("background-color: #111322; border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 8px; padding: 12px; font-size: 12px; color: #F8FAFC;")
         l_lay.addWidget(self.lbl_crash_diagnosis)
         self.log_viewer = QPlainTextEdit()
         self.log_viewer.setReadOnly(True)
         self.log_viewer.setMaximumBlockCount(3000)
-        self.log_viewer.setStyleSheet("background-color: #0C0C0E; color: #E2E8F0; font-family: Consolas, monospace; font-size: 11px; border: 1px solid #242428; border-radius: 4px; padding: 6px;")
+        self.log_viewer.setStyleSheet("background-color: #0A0B13; color: #E2E8F0; font-family: Consolas, monospace; font-size: 11px; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 6px; padding: 6px;")
         l_lay.addWidget(self.log_viewer, 1)
         l_btn_row = QHBoxLayout()
         self.btn_log_refresh = QPushButton("Yenile")
@@ -625,9 +608,11 @@ class InstalledModsPanel(QWidget):
             t = theme_manager.get_theme(theme_key)
             r, g, b = t["rgb"]
             prim_light = t["primary_light"]
+            bevel_bottom = t.get("bevel_bottom", "#4C1D95")
         except Exception:
             r, g, b = (139, 92, 246)
             prim_light = "#A855F7"
+            bevel_bottom = "#4C1D95"
 
         for i, btn in enumerate(self.sub_tab_btns):
             is_active = (i == index)
@@ -637,37 +622,37 @@ class InstalledModsPanel(QWidget):
             if is_active:
                 btn.setStyleSheet(f"""
                     QPushButton {{
-                        background-color: #261E38;
+                        background-color: #1E1A34;
                         color: #FFFFFF;
                         border: 1px solid {prim_light};
                         border-top: 1.5px solid {prim_light};
-                        border-bottom: 2.5px solid #4C1D95;
-                        border-radius: 4px;
-                        font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                        border-bottom: 2.5px solid {bevel_bottom};
+                        border-radius: 6px;
+                        font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
                         font-size: 11px;
                         font-weight: bold;
-                        padding: 6px 12px;
+                        padding: 6px 14px;
                     }}
                 """)
             else:
-                btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #1A1A1E;
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: #111322;
                         color: #94A3B8;
-                        border: 1px solid #242428;
-                        border-top: 1px solid #2E2E34;
-                        border-bottom: 2px solid #16161A;
-                        border-radius: 4px;
-                        font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                        border: 1px solid rgba({r}, {g}, {b}, 0.18);
+                        border-top: 1px solid rgba({r}, {g}, {b}, 0.28);
+                        border-bottom: 2px solid #08090F;
+                        border-radius: 6px;
+                        font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
                         font-size: 11px;
                         font-weight: bold;
-                        padding: 6px 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #222228;
-                        color: #FFFFFF;
-                        border-top: 1px solid #3E3E48;
-                    }
+                        padding: 6px 14px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: #16192C;
+                        color: #F8FAFC;
+                        border: 1px solid rgba({r}, {g}, {b}, 0.45);
+                    }}
                 """)
         if index == 0:
             self.refresh_list()
@@ -709,8 +694,8 @@ class InstalledModsPanel(QWidget):
                 border-left: 1px solid {primary};
                 border-right: 1px solid {pressed};
                 border-bottom: 2.5px solid {bevel_bottom};
-                border-radius: 4px;
-                font-family: 'Monocraft', 'Minecraft Five', 'Minecraft', sans-serif;
+                border-radius: 6px;
+                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
                 font-weight: 700;
                 font-size: 10pt;
                 letter-spacing: 0.5px;
@@ -728,24 +713,25 @@ class InstalledModsPanel(QWidget):
         """
         self._cached_off_style = """
             QPushButton {
-                background-color: #26262B;
+                background-color: #16192C;
                 color: #94A3B8;
-                border: 1px solid #1C1C20;
-                border-top: 1px solid #383842;
-                border-bottom: 2px solid #18181C;
-                border-radius: 4px;
-                font-family: 'Monocraft', 'Minecraft Five', 'Minecraft', sans-serif;
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                border-top: 1px solid rgba(139, 92, 246, 0.3);
+                border-bottom: 2px solid #08090F;
+                border-radius: 6px;
+                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
                 font-weight: 700;
                 font-size: 10pt;
                 letter-spacing: 0.5px;
                 padding: 0px;
             }
             QPushButton:hover {
-                background-color: #2F2F36;
+                background-color: #201D38;
                 color: #CBD5E1;
+                border: 1px solid rgba(168, 85, 247, 0.45);
             }
             QPushButton:pressed {
-                background-color: #1C1C20;
+                background-color: #121022;
             }
         """
         self._cached_toggle_styles_theme = theme_key
@@ -761,14 +747,16 @@ class InstalledModsPanel(QWidget):
             t = theme_manager.get_theme(theme_key)
             r, g, b = t["rgb"]
             prim_light = t["primary_light"]
+            bevel_bottom = t.get("bevel_bottom", "#4C1D95")
             tint = t.get("text_tint", "#FFFFFF")
 
-            list_style = f"QListWidget {{ background-color: #1A1A1E; border: 1px solid #282830; border-radius: 6px; outline: none; }} QListWidget::item {{ border-bottom: 1px solid #242428; padding: 8px; color: #F8FAFC; }} QListWidget::item:selected {{ background-color: #261E38; color: {tint}; border: 1px solid {prim_light}; }}"
-            btn_style = f"QPushButton {{ background-color: #222228; color: #E4E4E7; border: 1px solid #18181C; border-top: 1.5px solid #3E3E48; border-bottom: 2.5px solid #141416; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: 600; }} QPushButton:hover {{ border-top: 1.5px solid {prim_light}; background-color: #2A2A32; color: #FFFFFF; }}"
+            list_style = f"QListWidget {{ background-color: #111322; border: 1px solid rgba({r}, {g}, {b}, 0.25); border-radius: 8px; outline: none; }} QListWidget::item {{ border-bottom: 1px solid rgba({r}, {g}, {b}, 0.12); padding: 8px; color: #F8FAFC; }} QListWidget::item:selected {{ background-color: #1E1A34; color: {tint}; border: 1.5px solid {prim_light}; }}"
+            btn_style = f"QPushButton {{ background-color: #16192C; color: #CBD5E1; border: 1px solid rgba({r}, {g}, {b}, 0.25); border-top: 1.5px solid rgba({r}, {g}, {b}, 0.38); border-bottom: 2.5px solid #08090F; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 600; }} QPushButton:hover {{ border: 1px solid {prim_light}; background-color: #201D38; color: #FFFFFF; }}"
+            del_btn_style = "QPushButton { background-color: #16192C; color: #FCA5A5; border: 1px solid #7F1D1D; border-top: 1.5px solid #DC2626; border-bottom: 2.5px solid #7F1D1D; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: rgba(239, 68, 68, 0.2); border-color: #EF4444; }"
 
             if hasattr(self, "world_list"): self.world_list.setStyleSheet(list_style)
             if hasattr(self, "shot_list"): self.shot_list.setStyleSheet(list_style)
-            if hasattr(self, "mod_list"): self.mod_list.setStyleSheet(f"QListWidget {{ background-color: #1A1A1E; border: 1px solid #282830; border-radius: 6px; outline: none; }} QListWidget::item {{ border-bottom: 1px solid #242428; padding: 0px; }} QListWidget::item:selected {{ background-color: #261E38; border: 1px solid {prim_light}; }}")
+            if hasattr(self, "mod_list"): self.mod_list.setStyleSheet(f"QListWidget {{ background-color: #111322; border: 1px solid rgba({r}, {g}, {b}, 0.25); border-radius: 8px; outline: none; }} QListWidget::item {{ border-bottom: 1px solid rgba({r}, {g}, {b}, 0.12); padding: 0px; }} QListWidget::item:selected {{ background-color: #1E1A34; border: 1.5px solid {prim_light}; }}")
             for b in [
                 getattr(self, "btn_world_backup", None),
                 getattr(self, "btn_world_folder", None),
@@ -779,29 +767,31 @@ class InstalledModsPanel(QWidget):
                 getattr(self, "btn_log_folder", None),
             ]:
                 if b: b.setStyleSheet(btn_style)
+            if hasattr(self, "btn_world_del") and self.btn_world_del: self.btn_world_del.setStyleSheet(del_btn_style)
+            if hasattr(self, "btn_shot_del") and self.btn_shot_del: self.btn_shot_del.setStyleSheet(del_btn_style)
 
             if hasattr(self, "mod_search_input"):
                 self.mod_search_input.setStyleSheet(f"""
                     QLineEdit {{
-                        background-color: #141416;
+                        background-color: #111322;
                         color: #F8FAFC;
-                        border: 1px solid #282830;
+                        border: 1px solid rgba({r}, {g}, {b}, 0.25);
                         border-radius: 6px;
                         padding: 6px 12px;
                         font-size: 12px;
                         font-family: 'Segoe UI', sans-serif;
                     }}
                     QLineEdit:hover {{
-                        border-color: #3E3E48;
+                        border-color: rgba({r}, {g}, {b}, 0.55);
                     }}
                     QLineEdit:focus {{
                         border: 1px solid {prim_light};
-                        background-color: #18181D;
+                        background-color: #16192C;
                     }}
                 """)
 
             if hasattr(self, "lbl_crash_diagnosis") and not ("Diagnosis:" in self.lbl_crash_diagnosis.text() or "Teşhis:" in self.lbl_crash_diagnosis.text() or "Crash" in self.lbl_crash_diagnosis.text() or "hata ile kapandı" in self.lbl_crash_diagnosis.text()):
-                self.lbl_crash_diagnosis.setStyleSheet(f"background-color: #1A1A1E; border: 1px solid rgba({r}, {g}, {b}, 0.35); border-radius: 6px; padding: 12px; font-size: 12px; color: #F8FAFC;")
+                self.lbl_crash_diagnosis.setStyleSheet(f"background-color: #111322; border: 1px solid rgba({r}, {g}, {b}, 0.35); border-radius: 8px; padding: 12px; font-size: 12px; color: #F8FAFC;")
             if hasattr(self, "mod_list"):
                 for i in range(self.mod_list.count()):
                     w = self.mod_list.itemWidget(self.mod_list.item(i))
@@ -816,16 +806,36 @@ class InstalledModsPanel(QWidget):
                 if is_active:
                     btn.setStyleSheet(f"""
                         QPushButton {{
-                            background-color: #261E38;
+                            background-color: #1E1A34;
                             color: #FFFFFF;
                             border: 1px solid {prim_light};
                             border-top: 1.5px solid {prim_light};
-                            border-bottom: 2.5px solid #4C1D95;
-                            border-radius: 4px;
-                            font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                            border-bottom: 2.5px solid {bevel_bottom};
+                            border-radius: 6px;
+                            font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
                             font-size: 11px;
                             font-weight: bold;
-                            padding: 6px 12px;
+                            padding: 6px 14px;
+                        }}
+                    """)
+                else:
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: #111322;
+                            color: #94A3B8;
+                            border: 1px solid rgba({r}, {g}, {b}, 0.18);
+                            border-top: 1px solid rgba({r}, {g}, {b}, 0.28);
+                            border-bottom: 2px solid #08090F;
+                            border-radius: 6px;
+                            font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+                            font-size: 11px;
+                            font-weight: bold;
+                            padding: 6px 14px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: #16192C;
+                            color: #F8FAFC;
+                            border: 1px solid rgba({r}, {g}, {b}, 0.45);
                         }}
                     """)
         except Exception:
@@ -1395,15 +1405,13 @@ class UserCard(QFrame):
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet("""
             QFrame#UserCard {
-                background-color: #222227;
-                border: 1px solid #2E2E36;
-                border-top: 1px solid #3A3A42;
-                border-bottom: 2px solid #18181C;
-                border-radius: 4px;
+                background-color: #111322;
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                border-radius: 8px;
             }
             QFrame#UserCard:hover {
-                background-color: #28282E;
-                border-color: #3C3C48;
+                background-color: #16192C;
+                border-color: rgba(168, 85, 247, 0.5);
             }
         """)
         
@@ -1530,16 +1538,16 @@ class NavBar(QFrame):
         self.game_selector.addItems(["Minecraft: Java Edition", "Minecraft for Windows"])
         self.game_selector.setStyleSheet("""
             QComboBox {
-                background-color: #141416;
+                background-color: #111322;
                 color: #F8FAFC;
                 padding: 8px 12px;
-                border: 1px solid #282830;
-                border-radius: 6px;
+                border: 1px solid rgba(139, 92, 246, 0.22);
+                border-radius: 8px;
                 font-size: 12px;
                 font-weight: 700;
             }
             QComboBox:hover {
-                border-color: #8B5CF6;
+                border-color: #A855F7;
             }
         """)
         self.game_selector.currentTextChanged.connect(self.on_game_change)
@@ -1650,11 +1658,11 @@ class NavBar(QFrame):
             prim_light = t["primary_light"]
             self.game_selector.setStyleSheet(f"""
                 QComboBox {{
-                    background-color: #141416;
+                    background-color: #111322;
                     color: #F8FAFC;
                     padding: 8px 12px;
-                    border: 1px solid #282830;
-                    border-radius: 6px;
+                    border: 1px solid rgba({r}, {g}, {b}, 0.22);
+                    border-radius: 8px;
                     font-size: 12px;
                     font-weight: 700;
                 }}
@@ -1686,11 +1694,11 @@ class ActionBar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("ActionBar")
-        self.setFixedHeight(64)
+        self.setFixedHeight(68)
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 4, 20, 4)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 6, 20, 6)
+        layout.setSpacing(14)
         
         # Left Capsule (Profile info & badges)
         self.info_layout = QVBoxLayout()
@@ -1705,13 +1713,13 @@ class ActionBar(QFrame):
         self.badge_row.setAlignment(Qt.AlignVCenter)
         
         self.badge_ver = QLabel("v --")
-        self.badge_ver.setStyleSheet("background: rgba(139, 92, 246, 0.16); color: #C084FC; border: 1px solid rgba(139, 92, 246, 0.28); border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700;")
+        self.badge_ver.setStyleSheet("background: rgba(139, 92, 246, 0.22); color: #D8B4FE; border: 1px solid rgba(168, 85, 247, 0.38); border-radius: 5px; padding: 2px 7px; font-size: 11px; font-weight: 700;")
         
         self.badge_sep1 = QLabel("·")
         self.badge_sep1.setStyleSheet("color: #475569; font-weight: bold; font-size: 12px; background: transparent;")
 
         self.badge_loader = QLabel("Vanilla")
-        self.badge_loader.setStyleSheet("color: #CBD5E1; font-size: 11px; font-weight: 600; background: transparent;")
+        self.badge_loader.setStyleSheet("background: rgba(6, 182, 212, 0.15); color: #A5F3FC; border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 5px; padding: 2px 7px; font-size: 11px; font-weight: 600;")
         
         self.badge_sep2 = QLabel("·")
         self.badge_sep2.setStyleSheet("color: #475569; font-weight: bold; font-size: 12px; background: transparent;")
@@ -1757,28 +1765,29 @@ class ActionBar(QFrame):
         self.folder_btn = QPushButton(".MİNECRAFT")
         self.folder_btn.setStyleSheet("""
             QPushButton {
-                background-color: #222228;
-                color: #E4E4E7;
-                border: 1px solid #18181C;
-                border-top: 1.5px solid #3E3E48;
-                border-left: 1px solid #2E2E36;
-                border-right: 1px solid #1A1A1E;
-                border-bottom: 3px solid #141418;
-                border-radius: 4px;
-                padding: 6px 14px;
-                font-family: 'Minecraft Five', 'Segoe UI', sans-serif;
+                background-color: #16192C;
+                color: #CBD5E1;
+                border: 1px solid rgba(139, 92, 246, 0.22);
+                border-top: 1.5px solid rgba(139, 92, 246, 0.35);
+                border-bottom: 2.5px solid #08090F;
+                border-radius: 6px;
+                padding: 7px 16px;
+                font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
                 font-size: 11px;
-                font-weight: bold;
+                font-weight: 700;
+                letter-spacing: 0.5px;
             }
             QPushButton:hover {
-                background-color: #2A2A32;
-                border-top: 1.5px solid #525260;
+                background-color: #201D38;
+                border: 1px solid #A855F7;
                 color: #FFFFFF;
             }
             QPushButton:pressed {
-                border-top: 2px solid #141418;
-                border-bottom: 1px solid #3E3E48;
+                background-color: #121022;
+                border-top: 2px solid #08090F;
+                border-bottom: 1px solid rgba(139, 92, 246, 0.35);
                 padding-top: 8px;
+                padding-bottom: 6px;
             }
         """)
         self.folder_btn.setCursor(Qt.PointingHandCursor)
@@ -1827,23 +1836,36 @@ class ActionBar(QFrame):
             glow = t["glow"]
             primary = t.get("primary", "#8B5CF6")
             bevel_top = t.get("bevel_top", primary)
-            self.badge_ver.setStyleSheet(f"background: rgba({r}, {g}, {b}, 0.16); color: {glow}; border: 1px solid rgba({r}, {g}, {b}, 0.28); border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700;")
-            self.badge_loader.setStyleSheet("color: #CBD5E1; font-size: 11px; font-weight: 600; background: transparent;")
+            sec_r, sec_g, sec_b = t.get("secondary_rgb", (6, 182, 212))
+            sec_light = t.get("secondary_light", "#A5F3FC")
+            self.badge_ver.setStyleSheet(f"background: rgba({r}, {g}, {b}, 0.22); color: {glow}; border: 1px solid rgba({r}, {g}, {b}, 0.38); border-radius: 5px; padding: 2px 7px; font-size: 11px; font-weight: 700;")
+            self.badge_loader.setStyleSheet(f"background: rgba({sec_r}, {sec_g}, {sec_b}, 0.15); color: {sec_light}; border: 1px solid rgba({sec_r}, {sec_g}, {sec_b}, 0.3); border-radius: 5px; padding: 2px 7px; font-size: 11px; font-weight: 600;")
             self.badge_ram.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: 500; background: transparent;")
             self.folder_btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: #222228;
-                    color: #A1A1AA;
-                    border: 1px solid #282830;
-                    border-radius: 4px;
-                    padding: 6px 12px;
-                    font-size: 12px;
-                    font-weight: 600;
+                    background-color: #16192C;
+                    color: #CBD5E1;
+                    border: 1px solid rgba({r}, {g}, {b}, 0.22);
+                    border-top: 1.5px solid rgba({r}, {g}, {b}, 0.35);
+                    border-bottom: 2.5px solid #08090F;
+                    border-radius: 6px;
+                    padding: 7px 16px;
+                    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+                    font-size: 11px;
+                    font-weight: 700;
+                    letter-spacing: 0.5px;
                 }}
                 QPushButton:hover {{
-                    background-color: #282830;
-                    border-color: {bevel_top};
+                    background-color: #201D38;
+                    border: 1px solid {bevel_top};
                     color: #FFFFFF;
+                }}
+                QPushButton:pressed {{
+                    background-color: #121022;
+                    border-top: 2px solid #08090F;
+                    border-bottom: 1px solid rgba({r}, {g}, {b}, 0.35);
+                    padding-top: 8px;
+                    padding-bottom: 6px;
                 }}
             """)
             if hasattr(self, "play_btn"):
