@@ -1,5 +1,5 @@
 {
-    "main.py": "00fa2402fcece313b51270d832a654159fddce75d92becdcd1842a2741c43c22",
+    "main.py": "1a2d0b89850f1873a095ea3bc0a1487be11df2290cb7c76bb141537bb1f6292a",
     "server_widget.py": "a6bdaf61d8b541cdcec27bae204e346efe9deda3b511c3222bbc82cbff7f9fa2",
     "card_widget.py": "ed26c120d04be01860bba296cf8d59cbd7419cbfb14d4e062b8ccae47bc3b008",
     "mod_manager.py": "927c4d9d4216078043635f543e8fe80edf751c535e7ffb7ea81d91f50f54345f",
@@ -8,7 +8,7 @@
     "vanilla_thread.py": "7a9fe53285f675d557a0554a8b80ed1713070c4a939ea88bc38ecf393219f7ed",
     "auth_window.py": "f2d673be87c68e796ac9cbb075eecf8732701f25239dfc384639947de7c74bfc",
     "server_thread.py": "9d40c244e276a155ee2931668e530c540ee8aace355bfb322742267c7da87cf3",
-    "ui_components.py": "8c9a59471d98344eeb63ad6ea6f067d4e0d995322443237f56f722a15b3e669d",
+    "ui_components.py": "60b16f96882417440d368d8d91522c2a0d1c11d5ba257492b07631865fb7557f",
     "server_downloader.py": "6a4a633bc170692f7d92da6289432833fba2a6caac8821fc733e304d45865a09",
     "app_updater.py": "50a5e7c26b559db18fba71ddf34f21b49415e82a6e49c7c7736248a62efeb781",
     "sound_manager.py": "e242ea4b77bf219fbb79e3091d2a40145bcccda7e47bac8004aa8fdab4a9195a",

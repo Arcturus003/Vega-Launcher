@@ -19,6 +19,7 @@ English • [Türkçe](README_TR.md)
 - **Isolated Profiles**: Keeps saves, mods, and configurations separated per instance.
 - **Secure Logins**: Microsoft OAuth authentication with session tokens encrypted locally via Windows DPAPI.
 - **Customizable Aesthetics**: Obsidian dark surfaces with selectable accent colors and procedural sound effects.
+- **Smart Crash Diagnostics**: Built-in AST and log analysis engine that pinpoints mod conflicts, missing dependencies, and JVM errors with automated remediation.
 
 ## Installation
 

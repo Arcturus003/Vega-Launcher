@@ -19,6 +19,7 @@ Dahili Modrinth desteği, otomatik Java kurulumu ve profil izolasyonuna sahip h�
 - **İzole Profiller**: Her profilin modları, kayıt dosyaları ve ayarları birbirinden tamamen bağımsız tutulur.
 - **Güvenli Oturum**: Microsoft OAuth girişi ve yerel oturum jetonlarının Windows DPAPI ile şifrelenmesi.
 - **Obsidyen Tema & Sesler**: Koyu obsidyen arayüz, özelleştirilebilir renk temaları ve prosedürel ses efektleri.
+- **Akıllı Çökme Analizi**: Mod çakışmalarını, eksik bağımlılıkları ve JVM hatalarını tespit eden dahili günlük analiz ve onarım motoru.
 
 ## Kurulum
 

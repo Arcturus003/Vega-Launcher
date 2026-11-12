@@ -9190,7 +9190,10 @@ oLink.Save
                     print(f"[CrashDetective] Error launching modal: {diag_err}")
 
             if hasattr(self, "installed_mods_panel"):
-
+                if profile_path and os.path.exists(profile_path):
+                    self.installed_mods_panel.current_dir = os.path.join(profile_path, "mods")
+                    self.installed_mods_panel.pdata = pdata
+                    self.installed_mods_panel.pid = pid
                 self.installed_mods_panel.show_crash_analysis(exit_code=exit_code)
 
             self.statusBar().showMessage(

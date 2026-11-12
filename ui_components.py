@@ -1299,7 +1299,7 @@ class InstalledModsPanel(QWidget):
                 if en else
                 "Teşhis: Uyumsuz Java Sürümü (`UnsupportedClassVersionError`). Ayarlar'dan Özel Java Yolunu sıfırlayın veya uygun Java (17/21) sürümünü seçin."
             )
-        mod_match = re.search(r"(?:Mod ID|modid|Mod|missing mandatory dependencies|ModResolutionException|FormattedException)[^\n]{0,120}", content, re.IGNORECASE)
+        mod_match = re.search(r"(?:Mod ID:\s*'[^']+'|Missing or unsupported mandatory dependencies|missing mandatory dependencies|ModResolutionException|FormattedException|ModLoadingException|requires\s+[a-z0-9_]+\s+[0-9])[^\n]{0,120}", content, re.IGNORECASE)
         if mod_match or "Missing or unsupported mandatory dependencies" in content or "net.fabricmc.loader.impl.FormattedException" in content or "ModLoadingException" in content:
             snippet = mod_match.group(0).strip() if mod_match else ""
             return (
